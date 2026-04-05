@@ -65,7 +65,7 @@ FlowDay is an **offline-first mobile productivity app** that helps users:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/flowday.git
+git clone https://github.com/albertii-alt/flowday.git
 cd flowday
 
 # Install dependencies
@@ -78,16 +78,11 @@ npx expo start
 📱 Usage
 --------
 
-1.  **Add a task** - Tap the + button, fill in details
-    
-2.  **Complete tasks** - Tap the checkbox
-    
-3.  **Delete tasks** - Long press on any task
-    
-4.  **View calendar** - Tap Calendar tab to see history
-    
-5.  **Track stats** - Tap Stats tab to see streaks and progress
-    
+1.  **Add a task** - Tap the + button, fill in details
+2.  **Complete tasks** - Tap the checkbox
+3.  **Delete tasks** - Long press on any task
+4.  **View calendar** - Tap Calendar tab to see history
+5.  **Track stats** - Tap Stats tab to see streaks and progress
 
 🏗️ Project Structure
 ---------------------
@@ -114,11 +109,8 @@ flowday/
 Contributions are welcome! Please:
 
 1.  Fork the repository
-    
 2.  Create a feature branch
-    
 3.  Submit a pull request
-    
 
 📄 License
 ----------
@@ -129,17 +121,14 @@ MIT License - feel free to use this project for learning or production!
 ------------------
 
 *   Built following product-first development principles
-    
 *   Offline-first architecture for reliability
-    
 *   Clean, modern UI/UX design
-    
 
 📞 Contact
 ----------
 
 albertiidaro0@gmail.com
 
-Project Link: [https://github.com/YOUR\_USERNAME/flowday](https://github.com/YOUR_USERNAME/flowday)
+Project Link: [https://github.com/YOUR_USERNAME/flowday](https://github.com/YOUR_USERNAME/flowday)
 
 **Made with ❤️ for better productivity**
