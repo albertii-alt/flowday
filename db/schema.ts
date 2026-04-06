@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-const db = SQLite.openDatabaseSync('flowday.db');
+export const db = SQLite.openDatabaseSync('flowday.db');
 
 export const createTables = async () => {
   await db.execAsync(`

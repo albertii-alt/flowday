@@ -1,9 +1,8 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useTheme } from '../../utils/useTheme';
-import { format } from 'date-fns';
 
 const categories = [
   { id: 'cat_personal', name: 'Personal', color: '#4f46e5' },
@@ -19,31 +18,44 @@ const priorities = [
   { value: 'high', label: 'High', color: '#ef4444' },
 ];
 
-export default function CreateTaskScreen() {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(categories[0].id);
-  const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [dueTime, setDueTime] = useState('');
-
-  const { addNewTask } = useTaskStore();
+export default function EditTaskScreen() {
+  const { id, title: initialTitle, description: initialDesc, category_id, priority: initialPriority, due_time, task_date } = useLocalSearchParams();
+  const { updateExistingTask, removeTask } = useTaskStore();
   const C = useTheme();
-  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const [title, setTitle] = useState(initialTitle as string || '');
+  const [description, setDescription] = useState(initialDesc as string || '');
+  const [selectedCategory, setSelectedCategory] = useState(category_id as string || 'cat_personal');
+  const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high'>((initialPriority as 'low' | 'medium' | 'high') || 'medium');
+  const [dueTime, setDueTime] = useState(due_time as string || '');
 
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a task title');
       return;
     }
-    await addNewTask({
+    await updateExistingTask(id as string, {
       title: title.trim(),
       description: description.trim() || undefined,
       category_id: selectedCategory,
       priority: selectedPriority,
       due_time: dueTime || undefined,
-      task_date: today,
     });
     router.back();
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Delete Task', `Delete "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await removeTask(id as string, task_date as string);
+          router.back();
+        },
+      },
+    ]);
   };
 
   return (
@@ -52,8 +64,10 @@ export default function CreateTaskScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backText, { color: C.primary }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>New Task</Text>
-        <View style={styles.placeholder} />
+        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>Edit Task</Text>
+        <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+          <Text style={styles.deleteText}>🗑️</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.form}>
@@ -65,7 +79,6 @@ export default function CreateTaskScreen() {
             placeholderTextColor={C.textMuted}
             value={title}
             onChangeText={setTitle}
-            autoFocus
           />
         </View>
 
@@ -143,7 +156,7 @@ export default function CreateTaskScreen() {
         </View>
 
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: C.primary }]} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Task</Text>
+          <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -156,7 +169,8 @@ const styles = StyleSheet.create({
   backButton: { padding: 8 },
   backText: { fontSize: 28 },
   headerTitle: { fontSize: 20, fontWeight: '600' },
-  placeholder: { width: 40 },
+  deleteButton: { padding: 8 },
+  deleteText: { fontSize: 24 },
   form: { padding: 20 },
   field: { marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },

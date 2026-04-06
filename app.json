@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "scheme": "flowday",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#4f46e5"
     },
@@ -31,6 +31,12 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7269b3a1-ce37-48d5-b7e8-ca9371a2620c"
+      }
+    }
   }
 }

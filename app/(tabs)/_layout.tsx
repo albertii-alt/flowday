@@ -1,63 +1,54 @@
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Text, Platform } from 'react-native';
+import { useTheme } from '../../utils/useTheme';
 
 export default function TabsLayout() {
+  const C = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#4f46e5',
-        },
+        headerStyle: { backgroundColor: C.primary },
         headerTintColor: '#fff',
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: C.surface,
+          borderTopColor: C.border,
           paddingBottom: Platform.OS === 'ios' ? 20 : 10,
           paddingTop: 10,
           height: Platform.OS === 'ios' ? 85 : 65,
         },
-        tabBarActiveTintColor: '#4f46e5',
-        tabBarInactiveTintColor: '#94a3b8',
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: C.textMuted,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Today',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>📅</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>📅</Text>,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
           title: 'Calendar',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>📆</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>📆</Text>,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>📊</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>📊</Text>,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>⚙️</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>⚙️</Text>,
         }}
       />
     </Tabs>
   );
 }
-
-// Add this import at the top
-import { Text } from 'react-native';

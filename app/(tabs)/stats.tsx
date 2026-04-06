@@ -1,297 +1,113 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { useEffect, useState } from 'react';
-import * as SQLite from 'expo-sqlite';
-
-interface DailyStat {
-  date: string;
-  total: number;
-  completed: number;
-  rate: number;
-}
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { useEffect } from 'react';
+import { useStatsStore } from '../../store/useStatsStore';
+import { useTheme } from '../../utils/useTheme';
 
 export default function StatsScreen() {
-  const [stats, setStats] = useState<DailyStat[]>([]);
-  const [totalTasks, setTotalTasks] = useState(0);
-  const [completedTasks, setCompletedTasks] = useState(0);
-  const [completionRate, setCompletionRate] = useState(0);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadStats = async () => {
-    try {
-      const db = SQLite.openDatabaseSync('flowday.db');
-      
-      // Get all tasks
-      const tasks = await db.getAllAsync('SELECT * FROM tasks') as any[];
-      
-      setTotalTasks(tasks.length);
-      const completed = tasks.filter((t: any) => t.is_completed === 1).length;
-      setCompletedTasks(completed);
-      const rate = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
-      setCompletionRate(rate);
-      
-      // Group by date
-      const dateMap = new Map<string, { total: number; completed: number }>();
-      
-      for (const task of tasks) {
-        if (!dateMap.has(task.task_date)) {
-          dateMap.set(task.task_date, { total: 0, completed: 0 });
-        }
-        const day = dateMap.get(task.task_date)!;
-        day.total++;
-        if (task.is_completed === 1) day.completed++;
-      }
-      
-      // Convert to array and sort
-      const dailyStats: DailyStat[] = Array.from(dateMap.entries())
-        .map(([date, data]) => ({
-          date,
-          total: data.total,
-          completed: data.completed,
-          rate: Math.round((data.completed / data.total) * 100)
-        }))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
-      setStats(dailyStats);
-      
-      // Calculate current streak
-      let streak = 0;
-      let checkDate = new Date();
-      
-      for (let i = 0; i < 30; i++) {
-        const dateStr = checkDate.toISOString().split('T')[0];
-        const dayStat = dailyStats.find(d => d.date === dateStr);
-        
-        if (dayStat && dayStat.rate >= 80) {
-          streak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else if (dayStat && dayStat.rate < 80) {
-          break;
-        } else {
-          // No tasks on this day - break streak
-          break;
-        }
-      }
-      
-      setCurrentStreak(streak);
-      
-    } catch (error) {
-      console.error('Stats error:', error);
-    }
-  };
+  const { overview, isLoading, fetchStats } = useStatsStore();
+  const { totalTasks, completedTasks, completionRate, currentStreak, bestStreak, dailyStats } = overview;
+  const C = useTheme();
 
   useEffect(() => {
-    loadStats();
+    fetchStats();
   }, []);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadStats();
-    setRefreshing(false);
-  };
-
   const getRateColor = (rate: number) => {
-    if (rate === 100) return '#10b981';
-    if (rate >= 80) return '#06b6d4';
-    if (rate >= 50) return '#f59e0b';
-    return '#ef4444';
+    if (rate === 100) return C.success;
+    if (rate >= 80) return C.accent;
+    if (rate >= 50) return C.warning;
+    return C.error;
   };
 
-  const getDayLabel = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  };
+  if (isLoading) {
+    return (
+      <View style={[styles.loaderContainer, { backgroundColor: C.background }]}>
+        <ActivityIndicator size="large" color={C.primary} />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4f46e5']} />}
+    <ScrollView
+      style={[styles.container, { backgroundColor: C.background }]}
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchStats} tintColor={C.primary} />}
     >
-      <Text style={styles.title}>Statistics</Text>
-      
-      {/* Streak Card */}
-      <View style={styles.streakCard}>
-        <Text style={styles.streakEmoji}>🔥</Text>
-        <Text style={styles.streakNumber}>{currentStreak}</Text>
-        <Text style={styles.streakLabel}>Current Streak</Text>
-        <Text style={styles.streakSubtext}>80%+ completion rate</Text>
-      </View>
-      
-      {/* Overall Stats */}
-      <View style={styles.overallCard}>
-        <Text style={styles.overallLabel}>Overall Completion</Text>
-        <Text style={styles.overallRate}>{completionRate}%</Text>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${completionRate}%`, backgroundColor: getRateColor(completionRate) }]} />
+      <Text style={[styles.title, { color: C.textPrimary }]}>Statistics</Text>
+
+      {totalTasks === 0 ? (
+        <View style={[styles.emptyCard, { backgroundColor: C.surface }]}>
+          <Text style={styles.emptyEmoji}>📝</Text>
+          <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No tasks yet</Text>
+          <Text style={[styles.emptyText, { color: C.textSecondary }]}>Add your first task from the Today tab</Text>
         </View>
-        <Text style={styles.overallText}>
-          {completedTasks} of {totalTasks} tasks completed
-        </Text>
-      </View>
-      
-      {/* Daily Breakdown */}
-      <View style={styles.dailyCard}>
-        <Text style={styles.dailyTitle}>Daily Breakdown</Text>
-        {stats.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📝</Text>
-            <Text style={styles.emptyText}>No tasks yet</Text>
-            <Text style={styles.emptySubtext}>Add some tasks to see your stats!</Text>
-          </View>
-        ) : (
-          stats.map((day, index) => (
-            <View key={index} style={styles.dayItem}>
-              <Text style={styles.dayDate}>{getDayLabel(day.date)}</Text>
-              <View style={styles.dayBarContainer}>
-                <View style={[styles.dayBar, { width: `${day.rate}%`, backgroundColor: getRateColor(day.rate) }]} />
-              </View>
-              <Text style={styles.dayRate}>{day.rate}%</Text>
+      ) : (
+        <>
+          <View style={styles.streakRow}>
+            <View style={[styles.streakCard, { backgroundColor: C.surface }]}>
+              <Text style={styles.streakEmoji}>🔥</Text>
+              <Text style={[styles.streakValue, { color: C.textPrimary }]}>{currentStreak}</Text>
+              <Text style={[styles.streakLabel, { color: C.textSecondary }]}>Current Streak</Text>
             </View>
-          ))
-        )}
-      </View>
+            <View style={[styles.streakCard, { backgroundColor: C.surface }]}>
+              <Text style={styles.streakEmoji}>🏆</Text>
+              <Text style={[styles.streakValue, { color: C.textPrimary }]}>{bestStreak}</Text>
+              <Text style={[styles.streakLabel, { color: C.textSecondary }]}>Best Streak</Text>
+            </View>
+          </View>
+
+          <View style={[styles.overallCard, { backgroundColor: C.surface }]}>
+            <Text style={[styles.overallLabel, { color: C.textSecondary }]}>Overall Completion</Text>
+            <Text style={[styles.overallRate, { color: getRateColor(completionRate) }]}>{completionRate}%</Text>
+            <View style={[styles.bar, { backgroundColor: C.border }]}>
+              <View style={[styles.barFill, { width: `${completionRate}%`, backgroundColor: getRateColor(completionRate) }]} />
+            </View>
+            <Text style={[styles.overallText, { color: C.textSecondary }]}>{completedTasks} of {totalTasks} tasks done</Text>
+          </View>
+
+          <View style={[styles.dailyCard, { backgroundColor: C.surface }]}>
+            <Text style={[styles.dailyTitle, { color: C.textPrimary }]}>Daily Breakdown</Text>
+            {dailyStats.map((day, i) => (
+              <View key={i} style={styles.dayItem}>
+                <Text style={[styles.dayDate, { color: C.textSecondary }]}>{day.date}</Text>
+                <View style={[styles.dayBarContainer, { backgroundColor: C.border }]}>
+                  <View style={[styles.dayBar, { width: `${day.rate}%`, backgroundColor: getRateColor(day.rate) }]} />
+                </View>
+                <Text style={[styles.dayRate, { color: getRateColor(day.rate) }]}>{day.rate}%</Text>
+                {day.streakEligible && <Text style={styles.streakDot}>🔥</Text>}
+              </View>
+            ))}
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1e293b',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  streakCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 24,
-    backgroundColor: '#fef3c7',
-    borderRadius: 24,
-    alignItems: 'center',
-  },
-  streakEmoji: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  streakNumber: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: '#d97706',
-  },
-  streakLabel: {
-    fontSize: 16,
-    color: '#92400e',
-    marginTop: 4,
-  },
-  streakSubtext: {
-    fontSize: 12,
-    color: '#b45309',
-    marginTop: 4,
-  },
-  overallCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-  },
-  overallLabel: {
-    fontSize: 14,
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  overallRate: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: '#4f46e5',
-    marginBottom: 12,
-  },
-  progressBar: {
-    width: '100%',
-    height: 10,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 5,
-  },
-  overallText: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  dailyCard: {
-    marginHorizontal: 20,
-    marginBottom: 30,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-  },
-  dailyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 16,
-  },
-  dayItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dayDate: {
-    width: 95,
-    fontSize: 13,
-    color: '#475569',
-    fontWeight: '500',
-  },
-  dayBarContainer: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginHorizontal: 12,
-  },
-  dayBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  dayRate: {
-    width: 45,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
+  container: { flex: 1 },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 32, fontWeight: '700', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  emptyCard: { margin: 20, padding: 40, borderRadius: 24, alignItems: 'center' },
+  emptyEmoji: { fontSize: 64, marginBottom: 16 },
+  emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  emptyText: { fontSize: 14, textAlign: 'center' },
+  streakRow: { flexDirection: 'row', marginHorizontal: 20, gap: 12, marginBottom: 4 },
+  streakCard: { flex: 1, borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  streakEmoji: { fontSize: 32, marginBottom: 8 },
+  streakValue: { fontSize: 36, fontWeight: '800' },
+  streakLabel: { fontSize: 12, marginTop: 4 },
+  overallCard: { margin: 20, padding: 24, borderRadius: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  overallLabel: { fontSize: 14, marginBottom: 8 },
+  overallRate: { fontSize: 56, fontWeight: '800', marginBottom: 16 },
+  bar: { width: '100%', height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 12 },
+  barFill: { height: '100%', borderRadius: 5 },
+  overallText: { fontSize: 14 },
+  dailyCard: { margin: 20, padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  dailyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
+  dayItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  dayDate: { width: 90, fontSize: 12 },
+  dayBarContainer: { flex: 1, height: 8, borderRadius: 4, overflow: 'hidden', marginHorizontal: 8 },
+  dayBar: { height: '100%', borderRadius: 4 },
+  dayRate: { width: 38, fontSize: 12, fontWeight: '600', textAlign: 'right' },
+  streakDot: { fontSize: 14, marginLeft: 6 },
 });
