@@ -1,8 +1,10 @@
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { useTheme } from '../../utils/useTheme';
+import GradientHeader from '../../components/GradientHeader';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
@@ -124,11 +126,8 @@ export default function TodayScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: C.background }]}>
-      <View style={[styles.header, { backgroundColor: C.surface, borderBottomColor: C.border }]}>
-        <Text style={[styles.greeting, { color: C.textPrimary }]}>{getGreeting()}</Text>
-        <Text style={[styles.date, { color: C.textSecondary }]}>{format(new Date(), 'EEEE, MMMM d')}</Text>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
+      <GradientHeader title={getGreeting()} subtitle={format(new Date(), 'EEEE, MMMM d')} />
 
       <View style={[styles.streakCard, { backgroundColor: C.streakBg }]}>
         <Text style={styles.streakIcon}>🔥</Text>
@@ -187,15 +186,12 @@ export default function TodayScreen() {
       <TouchableOpacity style={[styles.fab, { backgroundColor: C.primary }]} onPress={() => router.push('/task/create')} activeOpacity={0.8}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, borderBottomWidth: 1 },
-  greeting: { fontSize: 28, fontWeight: '700' },
-  date: { fontSize: 16, marginTop: 4 },
   streakCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 16, padding: 12, borderRadius: 16 },
   streakIcon: { fontSize: 24, marginRight: 12 },
   streakText: { fontSize: 14, fontWeight: '600' },

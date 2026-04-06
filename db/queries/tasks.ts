@@ -59,21 +59,25 @@ export const addTask = async (task: CreateTaskInput): Promise<string> => {
   return id;
 };
 
-const ALLOWED_UPDATE_FIELDS: ReadonlySet<string> = new Set([
-  'title', 'description', 'category_id', 'priority', 'due_time', 'task_date', 'is_completed',
-]);
-
-// Update a task
+// Update a task — explicit parameterized query, no dynamic SQL
 export const updateTask = async (id: string, updates: Partial<Task>): Promise<void> => {
-  const safeKeys = Object.keys(updates).filter(k => ALLOWED_UPDATE_FIELDS.has(k));
-  if (safeKeys.length === 0) return;
-
-  const fields = safeKeys.map(key => `${key} = ?`).join(', ');
-  const values = [...safeKeys.map(k => (updates as any)[k]), id];
-
   await db.runAsync(
-    `UPDATE tasks SET ${fields}, updated_at = date('now') WHERE id = ?`,
-    ...values
+    `UPDATE tasks SET
+       title = COALESCE(?, title),
+       description = CASE WHEN ? = 1 THEN ? ELSE description END,
+       category_id = COALESCE(?, category_id),
+       priority = COALESCE(?, priority),
+       due_time = CASE WHEN ? = 1 THEN ? ELSE due_time END,
+       task_date = COALESCE(?, task_date),
+       updated_at = date('now')
+     WHERE id = ?`,
+    updates.title ?? null,
+    updates.description !== undefined ? 1 : 0, updates.description ?? null,
+    updates.category_id ?? null,
+    updates.priority ?? null,
+    updates.due_time !== undefined ? 1 : 0, updates.due_time ?? null,
+    updates.task_date ?? null,
+    id
   );
 };
 

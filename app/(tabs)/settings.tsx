@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUIStore } from '../../store/useUIStore';
 import { useTheme } from '../../utils/useTheme';
+import GradientHeader from '../../components/GradientHeader';
 import { db, createTables } from '../../db/schema';
 import { router } from 'expo-router';
 
@@ -39,8 +41,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: C.background }]}>
-      <Text style={[styles.title, { color: C.textPrimary }]}>Settings</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
+      <GradientHeader title="Settings" />
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Appearance</Text>
@@ -67,13 +69,12 @@ export default function SettingsScreen() {
         <Text style={[styles.versionText, { color: C.textSecondary }]}>FlowDay v1.0.0</Text>
         <Text style={[styles.versionText, { color: C.textMuted }]}>Offline-first daily task tracker</Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  title: { fontSize: 32, fontWeight: '700', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   section: { marginHorizontal: 16, marginBottom: 16, padding: 16, borderRadius: 16, borderWidth: 1 },
   sectionTitle: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

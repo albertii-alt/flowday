@@ -4,11 +4,11 @@
     "slug": "flowday",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/flowday-icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "flowday",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/flowday-onboard.png",
       "resizeMode": "contain",
       "backgroundColor": "#4f46e5"
     },

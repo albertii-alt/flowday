@@ -60,16 +60,6 @@ export default function EditTaskScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: C.background }]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.header, { backgroundColor: C.surface, borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backText, { color: C.primary }]}>←</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>Edit Task</Text>
-        <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-          <Text style={styles.deleteText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.form}>
         <View style={styles.field}>
           <Text style={[styles.label, { color: C.textSecondary }]}>Task Title *</Text>

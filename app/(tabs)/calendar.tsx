@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay, addMonths, subMonths } from 'date-fns';
 import { getTasksByDateRange, getTasksByDate, Task } from '../../db/queries/tasks';
 import { useTheme } from '../../utils/useTheme';
+import GradientHeader from '../../components/GradientHeader';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -66,16 +68,18 @@ export default function CalendarScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: C.background }]}>
-      <View style={[styles.header, { backgroundColor: C.surface }]}>
-        <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navBtn}>
-          <Text style={[styles.navButtonText, { color: C.primary }]}>←</Text>
-        </TouchableOpacity>
-        <Text style={[styles.monthTitle, { color: C.textPrimary }]}>{format(currentMonth, 'MMMM yyyy')}</Text>
-        <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navBtn}>
-          <Text style={[styles.navButtonText, { color: C.primary }]}>→</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
+      <GradientHeader title="Calendar">
+        <View style={styles.calendarNavRow}>
+          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navBtn}>
+            <Text style={styles.navButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.monthTitle}>{format(currentMonth, 'MMMM yyyy')}</Text>
+          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navBtn}>
+            <Text style={styles.navButtonText}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </GradientHeader>
 
       <View style={[styles.weekHeader, { backgroundColor: C.surface }]}>
         {WEEKDAYS.map(day => (
@@ -148,16 +152,16 @@ export default function CalendarScreen() {
           )}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 60 },
+  calendarNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navBtn: { padding: 8 },
-  navButtonText: { fontSize: 24 },
-  monthTitle: { fontSize: 20, fontWeight: '600' },
+  navButtonText: { fontSize: 24, color: '#fff' },
+  monthTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
   weekHeader: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 8 },
   weekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingBottom: 8 },

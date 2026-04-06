@@ -8,8 +8,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: C.primary },
-        headerTintColor: '#fff',
+        headerShown: false,
         tabBarStyle: {
           backgroundColor: C.surface,
           borderTopColor: C.border,
@@ -25,14 +24,14 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Today',
-          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>📅</Text>,
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>☀️</Text>,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
           title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>📆</Text>,
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>📅</Text>,
         }}
       />
       <Tabs.Screen

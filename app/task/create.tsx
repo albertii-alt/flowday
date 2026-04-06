@@ -48,14 +48,6 @@ export default function CreateTaskScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: C.background }]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.header, { backgroundColor: C.surface, borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backText, { color: C.primary }]}>←</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>New Task</Text>
-        <View style={styles.placeholder} />
-      </View>
-
       <View style={styles.form}>
         <View style={styles.field}>
           <Text style={[styles.label, { color: C.textSecondary }]}>Task Title *</Text>

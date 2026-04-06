@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { useTheme } from '../../utils/useTheme';
+import GradientHeader from '../../components/GradientHeader';
 
 export default function StatsScreen() {
   const { overview, isLoading, fetchStats } = useStatsStore();
@@ -28,10 +30,11 @@ export default function StatsScreen() {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: C.background }]}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchStats} tintColor={C.primary} />}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
+      <GradientHeader title="Statistics" />
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchStats} tintColor={C.primary} />}
+      >
       <Text style={[styles.title, { color: C.textPrimary }]}>Statistics</Text>
 
       {totalTasks === 0 ? (
@@ -79,15 +82,15 @@ export default function StatsScreen() {
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 32, fontWeight: '700', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
-  emptyCard: { margin: 20, padding: 40, borderRadius: 24, alignItems: 'center' },
+  title: { fontSize: 32, fontWeight: '700', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },  emptyCard: { margin: 20, padding: 40, borderRadius: 24, alignItems: 'center' },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
   emptyText: { fontSize: 14, textAlign: 'center' },
