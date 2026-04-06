@@ -21,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/flowday-icon.png",
         "backgroundColor": "#4f46e5"
       },
       "package": "com.yourcompany.flowday"

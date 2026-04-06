@@ -70,6 +70,7 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
       <GradientHeader title="Calendar">
+        <Text style={styles.calendarHeaderTitle}>Calendar</Text>
         <View style={styles.calendarNavRow}>
           <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navBtn}>
             <Text style={styles.navButtonText}>←</Text>
@@ -158,6 +159,7 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  calendarHeaderTitle: { fontSize: 28, fontWeight: '700', color: '#fff', marginBottom: 8 },
   calendarNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navBtn: { padding: 8 },
   navButtonText: { fontSize: 24, color: '#fff' },

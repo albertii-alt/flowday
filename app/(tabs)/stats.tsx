@@ -35,8 +35,6 @@ export default function StatsScreen() {
       <ScrollView
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchStats} tintColor={C.primary} />}
       >
-      <Text style={[styles.title, { color: C.textPrimary }]}>Statistics</Text>
-
       {totalTasks === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: C.surface }]}>
           <Text style={styles.emptyEmoji}>📝</Text>
@@ -89,8 +87,7 @@ export default function StatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 32, fontWeight: '700', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },  emptyCard: { margin: 20, padding: 40, borderRadius: 24, alignItems: 'center' },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },emptyCard: { margin: 20, padding: 40, borderRadius: 24, alignItems: 'center' },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
   emptyText: { fontSize: 14, textAlign: 'center' },
