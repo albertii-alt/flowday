@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
   emptyText: { fontSize: 14, textAlign: 'center' },
-  streakRow: { flexDirection: 'row', marginHorizontal: 20, gap: 12, marginBottom: 4 },
+  streakRow: { flexDirection: 'row', marginHorizontal: 20, gap: 12, marginBottom: 4, marginTop: 16 },
   streakCard: { flex: 1, borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   streakEmoji: { fontSize: 32, marginBottom: 8 },
   streakValue: { fontSize: 36, fontWeight: '800' },
