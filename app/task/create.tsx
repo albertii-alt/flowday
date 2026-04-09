@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useTheme } from '../../utils/useTheme';
+import { addRecurringTask, Frequency } from '../../db/queries/recurring';
 import { format } from 'date-fns';
 
 const categories = [
@@ -25,6 +26,8 @@ export default function CreateTaskScreen() {
   const [selectedCategory, setSelectedCategory] = useState(categories[0].id);
   const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueTime, setDueTime] = useState('');
+  const [frequency, setFrequency] = useState<'none' | Frequency>('none');
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   const { addNewTask } = useTaskStore();
   const C = useTheme();
@@ -35,14 +38,31 @@ export default function CreateTaskScreen() {
       Alert.alert('Error', 'Please enter a task title');
       return;
     }
-    await addNewTask({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      category_id: selectedCategory,
-      priority: selectedPriority,
-      due_time: dueTime || undefined,
-      task_date: today,
-    });
+
+    if (frequency !== 'none') {
+      if (frequency === 'weekly' && selectedDays.length === 0) {
+        Alert.alert('Error', 'Please select at least one day for weekly recurrence');
+        return;
+      }
+      await addRecurringTask({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category_id: selectedCategory,
+        priority: selectedPriority,
+        due_time: dueTime || undefined,
+        frequency,
+        days_of_week: frequency === 'weekly' ? selectedDays.sort().join(',') : undefined,
+      });
+    } else {
+      await addNewTask({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category_id: selectedCategory,
+        priority: selectedPriority,
+        due_time: dueTime || undefined,
+        task_date: today,
+      });
+    }
     router.back();
   };
 
@@ -134,6 +154,52 @@ export default function CreateTaskScreen() {
           />
         </View>
 
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: C.textSecondary }]}>Repeat</Text>
+          <View style={styles.priorityRow}>
+            {(['none', 'daily', 'weekly'] as const).map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[
+                  styles.priorityChip,
+                  { backgroundColor: C.surface, borderColor: C.border },
+                  frequency === f && { backgroundColor: C.primary, borderColor: C.primary },
+                ]}
+                onPress={() => setFrequency(f)}
+              >
+                <Text style={[styles.priorityText, { color: C.textSecondary }, frequency === f && { color: '#fff' }]}>
+                  {f === 'none' ? 'None' : f === 'daily' ? '🔁 Daily' : '📅 Weekly'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {frequency === 'weekly' && (
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: C.textSecondary }]}>Repeat On</Text>
+            <View style={styles.daysRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dayChip,
+                    { backgroundColor: C.surface, borderColor: C.border },
+                    selectedDays.includes(index) && { backgroundColor: C.primary, borderColor: C.primary },
+                  ]}
+                  onPress={() => setSelectedDays(prev =>
+                    prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
+                  )}
+                >
+                  <Text style={[styles.dayText, { color: C.textSecondary }, selectedDays.includes(index) && { color: '#fff' }]}>
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: C.primary }]} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save Task</Text>
         </TouchableOpacity>
@@ -163,4 +229,7 @@ const styles = StyleSheet.create({
   priorityText: { fontSize: 14, fontWeight: '500' },
   saveButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  dayChip: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  dayText: { fontSize: 13, fontWeight: '600' },
 });

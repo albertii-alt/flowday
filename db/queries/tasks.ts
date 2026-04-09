@@ -9,6 +9,7 @@ export interface Task {
   due_time?: string;
   task_date: string;
   is_completed: number;
+  recurring_task_id?: string;
   created_at: string;
   updated_at: string;
 }

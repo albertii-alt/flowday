@@ -89,7 +89,7 @@ export default function TodayScreen() {
 
       <View style={styles.taskContent}>
         <Text style={[styles.taskTitle, { color: C.textPrimary }, item.is_completed === 1 && { textDecorationLine: 'line-through', color: C.textMuted }]}>
-          {item.title}
+          {item.title}{item.recurring_task_id ? ' 🔁' : ''}
         </Text>
         <View style={styles.taskMeta}>
           {item.category_id && (

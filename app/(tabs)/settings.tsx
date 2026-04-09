@@ -45,6 +45,14 @@ export default function SettingsScreen() {
       <GradientHeader title="Settings" />
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
+        <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Tasks</Text>
+        <TouchableOpacity style={styles.navButton} onPress={() => router.push('/task/recurring')}>
+          <Text style={[styles.navButtonText, { color: C.textPrimary }]}>🔁 Recurring Tasks</Text>
+          <Text style={[styles.navArrow, { color: C.textMuted }]}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Appearance</Text>
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: C.textPrimary }]}>Dark Mode</Text>
@@ -66,7 +74,7 @@ export default function SettingsScreen() {
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>About</Text>
-        <Text style={[styles.versionText, { color: C.textSecondary }]}>FlowDay v1.0.0</Text>
+        <Text style={[styles.versionText, { color: C.textSecondary }]}>FlowDay v1.1.0</Text>
         <Text style={[styles.versionText, { color: C.textMuted }]}>Offline-first daily task tracker</Text>
       </View>
     </SafeAreaView>
@@ -79,6 +87,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingLabel: { fontSize: 16 },
+  navButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  navButtonText: { fontSize: 16 },
+  navArrow: { fontSize: 20 },
   dangerButton: { padding: 14, borderRadius: 12, alignItems: 'center' },
   dangerButtonText: { fontSize: 16, fontWeight: '600' },
   versionText: { fontSize: 14, marginBottom: 4 },

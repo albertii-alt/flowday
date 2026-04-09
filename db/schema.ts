@@ -15,6 +15,7 @@ export const createTables = async () => {
       due_time TEXT,
       task_date TEXT NOT NULL,
       is_completed INTEGER NOT NULL DEFAULT 0,
+      recurring_task_id TEXT,
       created_at TEXT NOT NULL DEFAULT (date('now')),
       updated_at TEXT NOT NULL DEFAULT (date('now'))
     );
@@ -47,6 +48,20 @@ export const createTables = async () => {
       onboarding_completed INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Recurring tasks table
+    CREATE TABLE IF NOT EXISTS recurring_tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      category_id TEXT,
+      priority TEXT NOT NULL DEFAULT 'medium',
+      due_time TEXT,
+      frequency TEXT NOT NULL DEFAULT 'daily',
+      days_of_week TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (date('now'))
+    );
+
     -- Insert default categories
     INSERT OR IGNORE INTO categories (id, name, color, icon) VALUES
       ('cat_personal', 'Personal', '#4f46e5', 'person'),
@@ -59,8 +74,21 @@ export const createTables = async () => {
     INSERT OR IGNORE INTO settings (id, theme, streak_rule, onboarding_completed)
       VALUES ('settings_default', 'light', 80, 0);
   `);
-  
+
+  // Run migrations for existing databases
+  await runMigrations();
+
   console.log('✅ Database tables created successfully');
+};
+
+const runMigrations = async () => {
+  // Migration: add recurring_task_id to tasks if it doesn't exist
+  const taskColumns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(tasks)`);
+  const hasRecurringCol = taskColumns.some(col => col.name === 'recurring_task_id');
+  if (!hasRecurringCol) {
+    await db.execAsync(`ALTER TABLE tasks ADD COLUMN recurring_task_id TEXT`);
+    console.log('✅ Migration: added recurring_task_id to tasks');
+  }
 };
 
 export { generateUUID };

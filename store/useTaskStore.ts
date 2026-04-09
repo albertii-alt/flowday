@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getTasksByDate, addTask, updateTask, toggleTaskCompletion, deleteTask, Task, CreateTaskInput } from '../db/queries/tasks';
 import { updateDailyStats } from '../db/queries/stats';
+import { generateRecurringTasksForDate } from '../db/queries/recurring';
 
 interface TaskStore {
   todayTasks: Task[];
@@ -21,6 +22,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   fetchTodayTasks: async (date: string) => {
     set({ isLoading: true });
     try {
+      await generateRecurringTasksForDate(date);
       const tasks = await getTasksByDate(date);
       set({ todayTasks: tasks, isLoading: false });
     } catch (error) {
