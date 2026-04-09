@@ -29,7 +29,17 @@ module.exports = {
     web: {
       favicon: './assets/favicon.png',
     },
-    plugins: ['expo-router'],
+    plugins: [
+      'expo-router',
+      [
+        'expo-notifications',
+        {
+          icon: './assets/flowday-icon.png',
+          color: '#4f46e5',
+          androidMode: 'default',
+        },
+      ],
+    ],
     extra: {
       router: {},
       eas: {

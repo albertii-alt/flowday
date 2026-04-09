@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { useTaskStore } from '../../store/useTaskStore';
@@ -67,7 +67,11 @@ export default function CreateTaskScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: C.background }]} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView style={[styles.container, { backgroundColor: C.background }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.form}>
         <View style={styles.field}>
           <Text style={[styles.label, { color: C.textSecondary }]}>Task Title *</Text>
@@ -204,7 +208,8 @@ export default function CreateTaskScreen() {
           <Text style={styles.saveButtonText}>Save Task</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -45,7 +45,9 @@ export const createTables = async () => {
       id TEXT PRIMARY KEY,
       theme TEXT NOT NULL DEFAULT 'light',
       streak_rule INTEGER NOT NULL DEFAULT 80,
-      onboarding_completed INTEGER NOT NULL DEFAULT 0
+      onboarding_completed INTEGER NOT NULL DEFAULT 0,
+      notifications_enabled INTEGER NOT NULL DEFAULT 0,
+      reminder_time TEXT NOT NULL DEFAULT '08:00'
     );
 
     -- Recurring tasks table
@@ -88,6 +90,18 @@ const runMigrations = async () => {
   if (!hasRecurringCol) {
     await db.execAsync(`ALTER TABLE tasks ADD COLUMN recurring_task_id TEXT`);
     console.log('✅ Migration: added recurring_task_id to tasks');
+  }
+
+  // Migration: add notification columns to settings if they don't exist
+  const settingsColumns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(settings)`);
+  const colNames = settingsColumns.map(c => c.name);
+  if (!colNames.includes('notifications_enabled')) {
+    await db.execAsync(`ALTER TABLE settings ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 0`);
+    console.log('✅ Migration: added notifications_enabled to settings');
+  }
+  if (!colNames.includes('reminder_time')) {
+    await db.execAsync(`ALTER TABLE settings ADD COLUMN reminder_time TEXT NOT NULL DEFAULT '08:00'`);
+    console.log('✅ Migration: added reminder_time to settings');
   }
 };
 

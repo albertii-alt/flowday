@@ -1,14 +1,68 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUIStore } from '../../store/useUIStore';
 import { useTheme } from '../../utils/useTheme';
 import GradientHeader from '../../components/GradientHeader';
 import { db, createTables } from '../../db/schema';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  requestNotificationPermission,
+  scheduleDailyReminder,
+  cancelDailyReminder,
+  loadNotificationSettings,
+  saveNotificationSettings,
+} from '../../utils/notifications';
 
 export default function SettingsScreen() {
   const { isDarkMode, setDarkMode } = useUIStore();
   const C = useTheme();
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState('08:00');
+  const [editingTime, setEditingTime] = useState(false);
+  const [timeInput, setTimeInput] = useState('08:00');
+
+  useEffect(() => {
+    loadNotificationSettings().then(({ enabled, reminderTime: time }) => {
+      setNotificationsEnabled(enabled);
+      setReminderTime(time);
+      setTimeInput(time);
+    });
+  }, []);
+
+  const handleNotificationToggle = async (value: boolean) => {
+    if (value) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please enable notifications in your phone settings to use this feature.'
+        );
+        return;
+      }
+      await scheduleDailyReminder(reminderTime);
+    } else {
+      await cancelDailyReminder();
+    }
+    setNotificationsEnabled(value);
+    await saveNotificationSettings(value, reminderTime);
+  };
+
+  const handleTimeSave = async () => {
+    // Validate HH:MM format
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!timeRegex.test(timeInput)) {
+      Alert.alert('Invalid Time', 'Please enter time in HH:MM format (e.g. 08:00)');
+      return;
+    }
+    setReminderTime(timeInput);
+    setEditingTime(false);
+    await saveNotificationSettings(notificationsEnabled, timeInput);
+    if (notificationsEnabled) {
+      await scheduleDailyReminder(timeInput);
+    }
+  };
 
   const hardReset = () => {
     Alert.alert(
@@ -21,11 +75,13 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              await cancelDailyReminder();
               await db.execAsync(`
                 DROP TABLE IF EXISTS tasks;
                 DROP TABLE IF EXISTS daily_stats;
                 DROP TABLE IF EXISTS categories;
                 DROP TABLE IF EXISTS settings;
+                DROP TABLE IF EXISTS recurring_tasks;
               `);
               await createTables();
               Alert.alert('Done', 'All data has been reset.');
@@ -66,6 +122,45 @@ export default function SettingsScreen() {
       </View>
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
+        <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Notifications</Text>
+        <View style={styles.settingRow}>
+          <Text style={[styles.settingLabel, { color: C.textPrimary }]}>Daily Reminder</Text>
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={handleNotificationToggle}
+            trackColor={{ false: C.border, true: C.primary }}
+            thumbColor='#fff'
+          />
+        </View>
+        {notificationsEnabled && (
+          <View style={[styles.timeRow, { borderTopColor: C.border }]}>
+            <Text style={[styles.settingLabel, { color: C.textPrimary }]}>Reminder Time</Text>
+            {editingTime ? (
+              <View style={styles.timeEditRow}>
+                <TextInput
+                  style={[styles.timeInput, { backgroundColor: C.background, borderColor: C.border, color: C.textPrimary }]}
+                  value={timeInput}
+                  onChangeText={setTimeInput}
+                  placeholder="HH:MM"
+                  placeholderTextColor={C.textMuted}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={5}
+                  autoFocus
+                />
+                <TouchableOpacity style={[styles.saveTimeBtn, { backgroundColor: C.primary }]} onPress={handleTimeSave}>
+                  <Text style={styles.saveTimeBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => setEditingTime(true)}>
+                <Text style={[styles.timeValue, { color: C.primary }]}>{reminderTime}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+
+      <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Data</Text>
         <TouchableOpacity style={[styles.dangerButton, { backgroundColor: C.error + '20' }]} onPress={hardReset}>
           <Text style={[styles.dangerButtonText, { color: C.error }]}>Reset All Data</Text>
@@ -83,13 +178,19 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  section: { marginHorizontal: 16, marginTop: 16, marginBottom: 16, padding: 16, borderRadius: 16, borderWidth: 1 },
+  section: { marginHorizontal: 16, marginTop: 16, marginBottom: 0, padding: 16, borderRadius: 16, borderWidth: 1 },
   sectionTitle: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingLabel: { fontSize: 16 },
   navButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   navButtonText: { fontSize: 16 },
   navArrow: { fontSize: 20 },
+  timeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  timeEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, fontSize: 16, width: 80, textAlign: 'center' },
+  saveTimeBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  saveTimeBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  timeValue: { fontSize: 16, fontWeight: '600' },
   dangerButton: { padding: 14, borderRadius: 12, alignItems: 'center' },
   dangerButtonText: { fontSize: 16, fontWeight: '600' },
   versionText: { fontSize: 14, marginBottom: 4 },
