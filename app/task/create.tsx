@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useTheme } from '../../utils/useTheme';
-import { addRecurringTask, Frequency } from '../../db/queries/recurring';
+import { addRecurringTask, generateRecurringTasksForDate, Frequency } from '../../db/queries/recurring';
 import { format } from 'date-fns';
 
 const categories = [
@@ -29,7 +29,7 @@ export default function CreateTaskScreen() {
   const [frequency, setFrequency] = useState<'none' | Frequency>('none');
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
-  const { addNewTask } = useTaskStore();
+  const { addNewTask, fetchTodayTasks } = useTaskStore();
   const C = useTheme();
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -53,6 +53,9 @@ export default function CreateTaskScreen() {
         frequency,
         days_of_week: frequency === 'weekly' ? selectedDays.sort().join(',') : undefined,
       });
+      // Generate for today immediately so it shows up right away
+      await generateRecurringTasksForDate(today);
+      await fetchTodayTasks(today);
     } else {
       await addNewTask({
         title: title.trim(),
