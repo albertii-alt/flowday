@@ -16,6 +16,7 @@ export const createTables = async () => {
       task_date TEXT NOT NULL,
       is_completed INTEGER NOT NULL DEFAULT 0,
       recurring_task_id TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (date('now')),
       updated_at TEXT NOT NULL DEFAULT (date('now'))
     );
@@ -29,7 +30,7 @@ export const createTables = async () => {
       created_at TEXT NOT NULL DEFAULT (date('now'))
     );
 
-    -- Daily stats table - FIXED with all columns
+    -- Daily stats table
     CREATE TABLE IF NOT EXISTS daily_stats (
       id TEXT PRIMARY KEY,
       date TEXT NOT NULL UNIQUE,
@@ -77,29 +78,33 @@ export const createTables = async () => {
       VALUES ('settings_default', 'light', 80, 0);
   `);
 
-  // Run migrations for existing databases
   await runMigrations();
-
   console.log('✅ Database tables created successfully');
 };
 
 const runMigrations = async () => {
-  // Migration: add recurring_task_id to tasks if it doesn't exist
   const taskColumns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(tasks)`);
-  const hasRecurringCol = taskColumns.some(col => col.name === 'recurring_task_id');
-  if (!hasRecurringCol) {
+  const taskColNames = taskColumns.map(c => c.name);
+
+  if (!taskColNames.includes('recurring_task_id')) {
     await db.execAsync(`ALTER TABLE tasks ADD COLUMN recurring_task_id TEXT`);
     console.log('✅ Migration: added recurring_task_id to tasks');
   }
 
-  // Migration: add notification columns to settings if they don't exist
+  if (!taskColNames.includes('sort_order')) {
+    await db.execAsync(`ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`);
+    await db.execAsync(`UPDATE tasks SET sort_order = rowid WHERE sort_order = 0`);
+    console.log('✅ Migration: added sort_order to tasks');
+  }
+
   const settingsColumns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(settings)`);
-  const colNames = settingsColumns.map(c => c.name);
-  if (!colNames.includes('notifications_enabled')) {
+  const settingsColNames = settingsColumns.map(c => c.name);
+
+  if (!settingsColNames.includes('notifications_enabled')) {
     await db.execAsync(`ALTER TABLE settings ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 0`);
     console.log('✅ Migration: added notifications_enabled to settings');
   }
-  if (!colNames.includes('reminder_time')) {
+  if (!settingsColNames.includes('reminder_time')) {
     await db.execAsync(`ALTER TABLE settings ADD COLUMN reminder_time TEXT NOT NULL DEFAULT '08:00'`);
     console.log('✅ Migration: added reminder_time to settings');
   }

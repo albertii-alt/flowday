@@ -68,16 +68,12 @@ export const deleteRecurringTask = async (id: string): Promise<void> => {
   await db.runAsync(`DELETE FROM recurring_tasks WHERE id = ?`, id);
 };
 
-// Generates today's tasks from active recurring tasks if not already generated
-// Optimized: single query to get all already-generated recurring task IDs for the date
 export const generateRecurringTasksForDate = async (date: string): Promise<void> => {
-  // Parse date parts directly to avoid timezone offset issues
   const [year, month, day] = date.split('-').map(Number);
   const dayOfWeek = new Date(year, month - 1, day).getDay();
   const recurringTasks = await getAllRecurringTasks();
   if (recurringTasks.length === 0) return;
 
-  // Single query to get all recurring task IDs already generated for this date
   const existing = await db.getAllAsync<{ recurring_task_id: string }>(
     `SELECT recurring_task_id FROM tasks WHERE task_date = ? AND recurring_task_id IS NOT NULL`,
     date

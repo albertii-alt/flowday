@@ -45,18 +45,20 @@ export default function CreateTaskScreen() {
         return;
       }
       const effectiveFrequency = frequency === 'weekly' && selectedDays.length === 7 ? 'daily' : frequency;
-      await addRecurringTask({
+      const recurringId = await addRecurringTask({
         title: title.trim(),
         description: description.trim() || undefined,
         category_id: selectedCategory,
         priority: selectedPriority,
         due_time: dueTime || undefined,
         frequency: effectiveFrequency,
-        days_of_week: effectiveFrequency === 'weekly' ? selectedDays.sort().join(',') : undefined,
+        days_of_week: effectiveFrequency === 'weekly' ? [...selectedDays].sort((a, b) => a - b).join(',') : undefined,
       });
-      // Explicitly generate then refresh — no double generate
-      await generateRecurringTasksForDate(today);
-      await refreshTodayTasks(today);
+      // Wait for DB write to complete before generating
+      if (recurringId) {
+        await generateRecurringTasksForDate(today);
+        await refreshTodayTasks(today);
+      }
     } else {
       await addNewTask({
         title: title.trim(),

@@ -12,11 +12,12 @@ export interface Task {
   recurring_task_id?: string;
   frequency?: string;
   days_of_week?: string;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
-export type CreateTaskInput = Omit<Task, 'id' | 'created_at' | 'updated_at' | 'is_completed'>;
+export type CreateTaskInput = Omit<Task, 'id' | 'created_at' | 'updated_at' | 'is_completed' | 'sort_order'>;
 
 // Simple UUID generator
 const generateUUID = (): string => {
@@ -27,31 +28,30 @@ const generateUUID = (): string => {
   });
 };
 
-// Get tasks for a specific date
+// Get tasks for a specific date — sorted by completion then user-defined order
 export const getTasksByDate = async (date: string): Promise<Task[]> => {
   const result = await db.getAllAsync(
     `SELECT t.*, r.frequency, r.days_of_week
      FROM tasks t
      LEFT JOIN recurring_tasks r ON t.recurring_task_id = r.id
-     WHERE t.task_date = ? 
-     ORDER BY t.is_completed ASC, 
-              CASE t.priority 
-                WHEN 'high' THEN 1 
-                WHEN 'medium' THEN 2 
-                WHEN 'low' THEN 3 
-              END ASC,
-              t.due_time ASC`,
+     WHERE t.task_date = ?
+     ORDER BY t.is_completed ASC, t.sort_order ASC`,
     date
   );
   return result as Task[];
 };
 
-// Add a new task
+// Add a new task — sort_order set to max + 1
 export const addTask = async (task: CreateTaskInput): Promise<string> => {
   const id = generateUUID();
+  const maxOrderRow = await db.getFirstAsync<{ max_order: number }>(
+    `SELECT COALESCE(MAX(sort_order), 0) as max_order FROM tasks WHERE task_date = ?`,
+    task.task_date
+  );
+  const sortOrder = (maxOrderRow?.max_order ?? 0) + 1;
   await db.runAsync(
-    `INSERT INTO tasks (id, title, description, category_id, priority, due_time, task_date, is_completed)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tasks (id, title, description, category_id, priority, due_time, task_date, is_completed, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     task.title,
     task.description || null,
@@ -59,7 +59,8 @@ export const addTask = async (task: CreateTaskInput): Promise<string> => {
     task.priority,
     task.due_time || null,
     task.task_date,
-    0
+    0,
+    sortOrder
   );
   return id;
 };
@@ -94,7 +95,7 @@ export const updateTask = async (id: string, updates: Partial<Task>): Promise<vo
   );
 };
 
-// Toggle task completion - SIMPLE VERSION, NO QUEUE
+// Toggle task completion
 export const toggleTaskCompletion = async (id: string, isCompleted: boolean): Promise<void> => {
   await db.runAsync(
     `UPDATE tasks SET is_completed = ?, updated_at = date('now') WHERE id = ?`,
@@ -108,11 +109,21 @@ export const deleteTask = async (id: string): Promise<void> => {
   await db.runAsync('DELETE FROM tasks WHERE id = ?', id);
 };
 
+// Update sort order — single SQL statement, instant
+export const updateTaskOrder = async (orderedIds: string[]): Promise<void> => {
+  if (orderedIds.length === 0) return;
+  const cases = orderedIds.map((id, i) => `WHEN '${id}' THEN ${i}`).join(' ');
+  const inList = orderedIds.map(id => `'${id}'`).join(',');
+  await db.execAsync(
+    `UPDATE tasks SET sort_order = CASE id ${cases} END WHERE id IN (${inList})`
+  );
+};
+
 // Get tasks for a date range
 export const getTasksByDateRange = async (startDate: string, endDate: string): Promise<Task[]> => {
   const result = await db.getAllAsync(
-    `SELECT * FROM tasks 
-     WHERE task_date >= ? AND task_date <= ? 
+    `SELECT * FROM tasks
+     WHERE task_date >= ? AND task_date <= ?
      ORDER BY task_date DESC`,
     startDate,
     endDate

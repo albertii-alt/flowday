@@ -1,6 +1,7 @@
 import { Stack, router } from 'expo-router';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initDatabase } from '../db';
 import { useUIStore } from '../store/useUIStore';
 import { db } from '../db/schema';
@@ -25,7 +26,8 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
@@ -66,6 +68,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

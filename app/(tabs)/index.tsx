@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef, useState } from 'react';
 import { useTaskStore } from '../../store/useTaskStore';
@@ -6,9 +6,11 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { useTheme } from '../../utils/useTheme';
 import GradientHeader from '../../components/GradientHeader';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
+import { Task } from '../../db/queries/tasks';
 
 const TODAY = format(new Date(), 'yyyy-MM-dd');
 
@@ -25,7 +27,7 @@ const getRecurringLabel = (frequency?: string, daysOfWeek?: string): string | nu
 };
 
 export default function TodayScreen() {
-  const { todayTasks, fetchTodayTasks, toggleTask, removeTask, isLoading } = useTaskStore();
+  const { todayTasks, fetchTodayTasks, toggleTask, removeTask, reorderTasks, isLoading } = useTaskStore();
   const { overview, fetchStats } = useStatsStore();
   const C = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
@@ -63,7 +65,6 @@ export default function TodayScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    // Predict progress before DB call — fire confetti instantly
     const newCompletedCount = completing ? completedCount + 1 : completedCount - 1;
     const newProgress = totalCount > 0 ? (newCompletedCount / totalCount) * 100 : 0;
     if (newProgress === 100 && totalCount > 0 && !hasShownConfetti) {
@@ -72,7 +73,6 @@ export default function TodayScreen() {
     }
     if (newProgress < 100) setHasShownConfetti(false);
 
-    // Fire and forget — UI already updated optimistically
     toggleTask(id, currentStatus === 1, taskDate);
   };
 
@@ -105,138 +105,158 @@ export default function TodayScreen() {
     return `${currentStreak} day streak — on fire!`;
   };
 
-  const renderTask = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={[styles.taskCard, { backgroundColor: C.surface }]}
-      onLongPress={() => handleDelete(item.id, item.task_date, item.title, item.recurring_task_id)}
-      activeOpacity={0.7}
-    >
+  const renderTask = ({ item, drag, isActive }: RenderItemParams<Task>) => (
+    <ScaleDecorator activeScale={1.03}>
       <TouchableOpacity
-        style={[styles.checkbox, { borderColor: C.primary }, item.is_completed === 1 && { backgroundColor: C.primary, borderColor: C.primary }]}
-        onPress={(e) => { e.stopPropagation(); handleToggle(item.id, item.is_completed, item.task_date); }}
+        style={[
+          styles.taskCard,
+          { backgroundColor: C.surface },
+          isActive && { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
+        ]}
+        onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          drag();
+        }}
+        delayLongPress={200}
+        activeOpacity={0.9}
       >
-        {item.is_completed === 1 && <Text style={styles.checkmark}>✓</Text>}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.checkbox, { borderColor: C.primary }, item.is_completed === 1 && { backgroundColor: C.primary, borderColor: C.primary }]}
+          onPress={(e) => { e.stopPropagation(); handleToggle(item.id, item.is_completed, item.task_date); }}
+        >
+          {item.is_completed === 1 && <Text style={styles.checkmark}>✓</Text>}
+        </TouchableOpacity>
 
-      <View style={styles.taskContent}>
-        <Text style={[styles.taskTitle, { color: C.textPrimary }, item.is_completed === 1 && { textDecorationLine: 'line-through', color: C.textMuted }]}>
-          {item.title}
-        </Text>
-        <View style={styles.taskMeta}>
-          {item.category_id && (
-            <Text style={[styles.metaText, { color: C.textSecondary }]}>{item.category_id.replace('cat_', '')}</Text>
-          )}
-          {item.due_time && <Text style={[styles.metaText, { color: C.textSecondary }]}>🕐 {item.due_time}</Text>}
-          {getRecurringLabel(item.frequency, item.days_of_week) && (
-            <View style={[styles.recurringBadge, { backgroundColor: C.primary + '15' }]}>
-              <Text style={[styles.recurringText, { color: C.primary }]}>
-                🔁 {getRecurringLabel(item.frequency, item.days_of_week)}
-              </Text>
-            </View>
-          )}
+        <View style={styles.taskContent}>
+          <Text style={[styles.taskTitle, { color: C.textPrimary }, item.is_completed === 1 && { textDecorationLine: 'line-through', color: C.textMuted }]}>
+            {item.title}
+          </Text>
+          <View style={styles.taskMeta}>
+            {item.category_id && (
+              <Text style={[styles.metaText, { color: C.textSecondary }]}>{item.category_id.replace('cat_', '')}</Text>
+            )}
+            {item.due_time && <Text style={[styles.metaText, { color: C.textSecondary }]}>🕐 {item.due_time}</Text>}
+            {getRecurringLabel(item.frequency, item.days_of_week) && (
+              <View style={[styles.recurringBadge, { backgroundColor: C.primary + '15' }]}>
+                <Text style={[styles.recurringText, { color: C.primary }]}>
+                  🔁 {getRecurringLabel(item.frequency, item.days_of_week)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
 
-      <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
-        <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
-          {item.priority}
-        </Text>
-      </View>
+        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
+          <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
+            {item.priority}
+          </Text>
+        </View>
 
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => router.push({
-          pathname: '/task/edit',
-          params: {
-            id: item.id,
-            title: item.title,
-            description: item.description || '',
-            category_id: item.category_id,
-            priority: item.priority,
-            due_time: item.due_time || '',
-            task_date: item.task_date,
-            recurring_task_id: item.recurring_task_id || '',
-          },
-        })}
-      >
-        <Text style={styles.editButtonText}>✏️</Text>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => router.push({
+            pathname: '/task/edit',
+            params: {
+              id: item.id,
+              title: item.title,
+              description: item.description || '',
+              category_id: item.category_id,
+              priority: item.priority,
+              due_time: item.due_time || '',
+              task_date: item.task_date,
+              recurring_task_id: item.recurring_task_id || '',
+            },
+          })}
+        >
+          <Text style={styles.editButtonText}>✏️</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDelete(item.id, item.task_date, item.title, item.recurring_task_id)}
+        >
+          <Text style={styles.deleteButtonText}>🗑️</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
+    </ScaleDecorator>
   );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
-      <GradientHeader title={getGreeting()} subtitle={format(new Date(), 'EEEE, MMMM d')} />
+        <GradientHeader title={getGreeting()} subtitle={format(new Date(), 'EEEE, MMMM d')} />
 
-      <View style={[styles.streakCard, { backgroundColor: C.streakBg }]}>
-        <Text style={styles.streakIcon}>🔥</Text>
-        <View>
-          <Text style={[styles.streakText, { color: C.streakText }]}>{getStreakMessage()}</Text>
-          {overview.bestStreak > 0 && (
-            <Text style={[styles.streakBest, { color: C.streakText }]}>Best: {overview.bestStreak} days</Text>
+        <View style={[styles.streakCard, { backgroundColor: C.streakBg }]}>
+          <Text style={styles.streakIcon}>🔥</Text>
+          <View>
+            <Text style={[styles.streakText, { color: C.streakText }]}>{getStreakMessage()}</Text>
+            {overview.bestStreak > 0 && (
+              <Text style={[styles.streakBest, { color: C.streakText }]}>Best: {overview.bestStreak} days</Text>
+            )}
+          </View>
+        </View>
+
+        <View style={[styles.progressCard, { backgroundColor: C.surface }]}>
+          <View style={[styles.progressRing, { backgroundColor: C.primary }]}>
+            <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+          </View>
+          <Text style={[styles.progressStats, { color: C.textPrimary }]}>
+            {completedCount} of {totalCount} tasks completed
+          </Text>
+          {progress === 100 && totalCount > 0 && (
+            <Text style={[styles.motivationText, { color: C.textSecondary }]}>🎉 Amazing day! You crushed it!</Text>
+          )}
+          {progress > 0 && progress < 100 && (
+            <Text style={[styles.motivationText, { color: C.textSecondary }]}>{totalCount - completedCount} more to go!</Text>
+          )}
+          {totalCount === 0 && (
+            <Text style={[styles.motivationText, { color: C.textSecondary }]}>✨ Add your first task to start</Text>
           )}
         </View>
-      </View>
 
-      <View style={[styles.progressCard, { backgroundColor: C.surface }]}>
-        <View style={[styles.progressRing, { backgroundColor: C.primary }]}>
-          <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+        <View style={styles.listHeader}>
+          <Text style={[styles.listTitle, { color: C.textPrimary }]}>Today's Tasks</Text>
+          <Text style={[styles.taskCount, { color: C.textSecondary }]}>{totalCount} tasks</Text>
         </View>
-        <Text style={[styles.progressStats, { color: C.textPrimary }]}>
-          {completedCount} of {todayTasks.length} tasks completed
-        </Text>
-        {progress === 100 && totalCount > 0 && (
-          <Text style={[styles.motivationText, { color: C.textSecondary }]}>🎉 Amazing day! You crushed it!</Text>
-        )}
-        {progress > 0 && progress < 100 && (
-          <Text style={[styles.motivationText, { color: C.textSecondary }]}>{totalCount - completedCount} more to go!</Text>
-        )}
-        {totalCount === 0 && (
-          <Text style={[styles.motivationText, { color: C.textSecondary }]}>✨ Add your first task to start</Text>
-        )}
-      </View>
 
-      <View style={styles.listHeader}>
-        <Text style={[styles.listTitle, { color: C.textPrimary }]}>Today's Tasks</Text>
-        <Text style={[styles.taskCount, { color: C.textSecondary }]}>{totalCount} tasks</Text>
-      </View>
+        {isLoading ? (
+          <View style={styles.centerLoader}>
+            <ActivityIndicator size="large" color={C.primary} />
+          </View>
+        ) : (
+          <View style={{ flex: 1 }}>
+            <DraggableFlatList
+            data={todayTasks}
+            keyExtractor={(item) => item.id}
+            renderItem={renderTask}
+            onDragEnd={({ data }) => reorderTasks(data)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>📝</Text>
+                <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No tasks for today</Text>
+                <Text style={[styles.emptyText, { color: C.textMuted }]}>Tap the + button to add your first task</Text>
+              </View>
+            )}
+          />
+          </View>
+        )}
 
-      {isLoading ? (
-        <View style={styles.centerLoader}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={todayTasks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderTask}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>📝</Text>
-              <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No tasks for today</Text>
-              <Text style={[styles.emptyText, { color: C.textMuted }]}>Tap the + button to add your first task</Text>
-            </View>
-          )}
+        <TouchableOpacity style={[styles.fab, { backgroundColor: C.primary }]} onPress={() => router.push('/task/create')} activeOpacity={0.8}>
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+
+        <ConfettiCannon
+          ref={confettiRef}
+          count={120}
+          origin={{ x: Dimensions.get('window').width / 2, y: -20 }}
+          autoStart={false}
+          fadeOut
+          fallSpeed={3000}
+          explosionSpeed={350}
+          colors={['#4f46e5', '#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#fff']}
         />
-      )}
-
-      <TouchableOpacity style={[styles.fab, { backgroundColor: C.primary }]} onPress={() => router.push('/task/create')} activeOpacity={0.8}>
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
-
-      <ConfettiCannon
-        ref={confettiRef}
-        count={120}
-        origin={{ x: Dimensions.get('window').width / 2, y: -20 }}
-        autoStart={false}
-        fadeOut
-        fallSpeed={3000}
-        explosionSpeed={350}
-        colors={['#4f46e5', '#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#fff']}
-      />
-    </SafeAreaView>
+      </SafeAreaView>
   );
 }
 
@@ -261,14 +281,16 @@ const styles = StyleSheet.create({
   checkmark: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   taskContent: { flex: 1 },
   taskTitle: { fontSize: 16, fontWeight: '500', marginBottom: 4 },
-  taskMeta: { flexDirection: 'row', gap: 12 },
+  taskMeta: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   metaText: { fontSize: 12 },
   recurringBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 2 },
   recurringText: { fontSize: 11, fontWeight: '600' },
-  priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginRight: 8 },
+  priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginRight: 4 },
   priorityText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
-  editButton: { padding: 8, marginLeft: 4 },
-  editButtonText: { fontSize: 18 },
+  editButton: { padding: 8, marginLeft: 2 },
+  editButtonText: { fontSize: 16 },
+  deleteButton: { padding: 8, marginLeft: 2 },
+  deleteButtonText: { fontSize: 16 },
   emptyState: { alignItems: 'center', paddingTop: 80 },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },

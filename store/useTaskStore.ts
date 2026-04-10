@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getTasksByDate, addTask, updateTask, toggleTaskCompletion, deleteTask, Task, CreateTaskInput } from '../db/queries/tasks';
+import { getTasksByDate, addTask, updateTask, updateTaskOrder, toggleTaskCompletion, deleteTask, Task, CreateTaskInput } from '../db/queries/tasks';
 import { updateDailyStats } from '../db/queries/stats';
 import { generateRecurringTasksForDate } from '../db/queries/recurring';
 
@@ -12,11 +12,11 @@ interface TaskStore {
   updateExistingTask: (id: string, updates: Partial<Task>) => Promise<void>;
   toggleTask: (id: string, currentStatus: boolean, taskDate: string) => Promise<void>;
   removeTask: (id: string, taskDate: string) => Promise<void>;
+  reorderTasks: (orderedTasks: Task[]) => void;
 }
 
 const pendingToggles = new Set<string>();
 
-// Silent background error logger — never blocks UI
 const logError = (context: string, error: unknown) => {
   console.error(`${context}:`, error instanceof Error ? error.message : 'Unknown error');
 };
@@ -37,7 +37,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  // Refresh without regenerating — use after explicit generateRecurringTasksForDate call
   refreshTodayTasks: async (date: string) => {
     try {
       const tasks = await getTasksByDate(date);
@@ -49,7 +48,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   addNewTask: async (task: CreateTaskInput) => {
     const id = await addTask(task);
-    // Refresh task list, update stats in background
     await get().fetchTodayTasks(task.task_date);
     updateDailyStats(task.task_date).catch(err => logError('Stats update', err));
     return id;
@@ -69,7 +67,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (pendingToggles.has(id)) return;
     pendingToggles.add(id);
 
-    // Optimistic UI update — instant, no DB wait
     set(state => ({
       todayTasks: state.todayTasks.map(task =>
         task.id === id ? { ...task, is_completed: task.is_completed === 1 ? 0 : 1 } : task
@@ -78,19 +75,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     try {
       await toggleTaskCompletion(id, !currentStatus);
-
-      // Compute updated stats from current state — no extra DB read needed
       const { todayTasks } = get();
       const total = todayTasks.length;
       const completed = todayTasks.filter(t => t.is_completed === 1).length;
-
-      // Fire and forget — never blocks UI
-      updateDailyStats(taskDate, total, completed).catch(err =>
-        logError('Stats update', err)
-      );
+      updateDailyStats(taskDate, total, completed).catch(err => logError('Stats update', err));
     } catch (error) {
       logError('Toggle error', error);
-      // Revert optimistic update on failure
       set(state => ({
         todayTasks: state.todayTasks.map(task =>
           task.id === id ? { ...task, is_completed: task.is_completed === 1 ? 0 : 1 } : task
@@ -109,5 +99,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (error) {
       logError('Delete error', error);
     }
+  },
+
+  // Instant optimistic reorder — DB write in background
+  reorderTasks: (orderedTasks: Task[]) => {
+    set({ todayTasks: orderedTasks });
+    updateTaskOrder(orderedTasks.map(t => t.id)).catch(err => logError('Reorder error', err));
   },
 }));
