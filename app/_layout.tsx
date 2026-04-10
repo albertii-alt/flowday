@@ -55,6 +55,16 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="task/edit-recurring"
+          options={{
+            headerShown: true,
+            headerTitle: 'Edit Recurring Task',
+            headerStyle: { backgroundColor: '#4f46e5' },
+            headerTintColor: '#fff',
+            presentation: 'modal',
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

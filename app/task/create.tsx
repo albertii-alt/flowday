@@ -29,7 +29,7 @@ export default function CreateTaskScreen() {
   const [frequency, setFrequency] = useState<'none' | Frequency>('none');
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
-  const { addNewTask, fetchTodayTasks } = useTaskStore();
+  const { addNewTask, fetchTodayTasks, refreshTodayTasks } = useTaskStore();
   const C = useTheme();
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -44,18 +44,19 @@ export default function CreateTaskScreen() {
         Alert.alert('Error', 'Please select at least one day for weekly recurrence');
         return;
       }
+      const effectiveFrequency = frequency === 'weekly' && selectedDays.length === 7 ? 'daily' : frequency;
       await addRecurringTask({
         title: title.trim(),
         description: description.trim() || undefined,
         category_id: selectedCategory,
         priority: selectedPriority,
         due_time: dueTime || undefined,
-        frequency,
-        days_of_week: frequency === 'weekly' ? selectedDays.sort().join(',') : undefined,
+        frequency: effectiveFrequency,
+        days_of_week: effectiveFrequency === 'weekly' ? selectedDays.sort().join(',') : undefined,
       });
-      // Generate for today immediately so it shows up right away
+      // Explicitly generate then refresh — no double generate
       await generateRecurringTasksForDate(today);
-      await fetchTodayTasks(today);
+      await refreshTodayTasks(today);
     } else {
       await addNewTask({
         title: title.trim(),

@@ -10,6 +10,8 @@ export interface Task {
   task_date: string;
   is_completed: number;
   recurring_task_id?: string;
+  frequency?: string;
+  days_of_week?: string;
   created_at: string;
   updated_at: string;
 }
@@ -28,15 +30,17 @@ const generateUUID = (): string => {
 // Get tasks for a specific date
 export const getTasksByDate = async (date: string): Promise<Task[]> => {
   const result = await db.getAllAsync(
-    `SELECT * FROM tasks 
-     WHERE task_date = ? 
-     ORDER BY is_completed ASC, 
-              CASE priority 
+    `SELECT t.*, r.frequency, r.days_of_week
+     FROM tasks t
+     LEFT JOIN recurring_tasks r ON t.recurring_task_id = r.id
+     WHERE t.task_date = ? 
+     ORDER BY t.is_completed ASC, 
+              CASE t.priority 
                 WHEN 'high' THEN 1 
                 WHEN 'medium' THEN 2 
                 WHEN 'low' THEN 3 
               END ASC,
-              due_time ASC`,
+              t.due_time ASC`,
     date
   );
   return result as Task[];
@@ -70,6 +74,11 @@ export const updateTask = async (id: string, updates: Partial<Task>): Promise<vo
        priority = COALESCE(?, priority),
        due_time = CASE WHEN ? = 1 THEN ? ELSE due_time END,
        task_date = COALESCE(?, task_date),
+       recurring_task_id = CASE
+         WHEN ? = 1 THEN NULL
+         WHEN ? IS NOT NULL THEN ?
+         ELSE recurring_task_id
+       END,
        updated_at = date('now')
      WHERE id = ?`,
     updates.title ?? null,
@@ -78,6 +87,9 @@ export const updateTask = async (id: string, updates: Partial<Task>): Promise<vo
     updates.priority ?? null,
     updates.due_time !== undefined ? 1 : 0, updates.due_time ?? null,
     updates.task_date ?? null,
+    'recurring_task_id' in updates && updates.recurring_task_id === undefined ? 1 : 0,
+    updates.recurring_task_id ?? null,
+    updates.recurring_task_id ?? null,
     id
   );
 };

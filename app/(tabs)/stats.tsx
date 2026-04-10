@@ -6,7 +6,7 @@ import { useTheme } from '../../utils/useTheme';
 import GradientHeader from '../../components/GradientHeader';
 
 export default function StatsScreen() {
-  const { overview, isLoading, fetchStats } = useStatsStore();
+  const { overview, badges, isLoading, fetchStats } = useStatsStore();
   const { totalTasks, completedTasks, completionRate, currentStreak, bestStreak, dailyStats, insights } = overview;
   const C = useTheme();
 
@@ -79,7 +79,38 @@ export default function StatsScreen() {
             ))}
           </View>
 
-          {/* Insights Card */}
+          {/* Badges Card */}
+          <View style={[styles.insightsCard, { backgroundColor: C.surface }]}>
+            <Text style={[styles.dailyTitle, { color: C.textPrimary }]}>🏅 Achievements</Text>
+            <Text style={[styles.badgeSubtitle, { color: C.textMuted }]}>
+              {badges.filter(b => b.unlocked).length} of {badges.length} unlocked
+            </Text>
+            <View style={styles.badgeGrid}>
+              {badges.map(badge => (
+                <View
+                  key={badge.id}
+                  style={[
+                    styles.badgeItem,
+                    { backgroundColor: badge.unlocked ? C.primary + '15' : C.border + '40',
+                      borderColor: badge.unlocked ? C.primary : C.border }
+                  ]}
+                >
+                  <Text style={[styles.badgeEmoji, { opacity: badge.unlocked ? 1 : 0.3 }]}>
+                    {badge.emoji}
+                  </Text>
+                  <Text style={[styles.badgeTitle, { color: badge.unlocked ? C.textPrimary : C.textMuted }]}>
+                    {badge.title}
+                  </Text>
+                  <Text style={[styles.badgeDesc, { color: C.textMuted }]}>
+                    {badge.description}
+                  </Text>
+                  {badge.unlocked && (
+                    <View style={[styles.unlockedDot, { backgroundColor: C.success }]} />
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
           <View style={[styles.insightsCard, { backgroundColor: C.surface }]}>
             <Text style={[styles.dailyTitle, { color: C.textPrimary }]}>✨ Insights</Text>
             {[
@@ -145,6 +176,13 @@ const styles = StyleSheet.create({
   dayBar: { height: '100%', borderRadius: 4 },
   dayRate: { width: 38, fontSize: 12, fontWeight: '600', textAlign: 'right' },
   streakDot: { fontSize: 14, marginLeft: 6 },
+  badgeSubtitle: { fontSize: 13, marginBottom: 16, marginTop: -8 },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  badgeItem: { width: '47%', borderRadius: 16, borderWidth: 1, padding: 14, alignItems: 'center', position: 'relative' },
+  badgeEmoji: { fontSize: 32, marginBottom: 8 },
+  badgeTitle: { fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
+  badgeDesc: { fontSize: 11, textAlign: 'center', lineHeight: 15 },
+  unlockedDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4 },
   insightsCard: { margin: 20, marginTop: 0, padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1, marginBottom: 32 },
   insightRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   insightEmoji: { fontSize: 20, marginRight: 12 },

@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { getStatsOverview, StatsOverview, Insights } from '../db/queries/stats';
+import { evaluateBadges, Badge } from '../utils/badges';
 
 interface StatsStore {
   overview: StatsOverview;
+  badges: Badge[];
   isLoading: boolean;
   fetchStats: () => Promise<void>;
 }
@@ -27,13 +29,15 @@ const defaultOverview: StatsOverview = {
 
 export const useStatsStore = create<StatsStore>((set) => ({
   overview: defaultOverview,
+  badges: [],
   isLoading: false,
 
   fetchStats: async () => {
     set({ isLoading: true });
     try {
       const overview = await getStatsOverview();
-      set({ overview, isLoading: false });
+      const badges = evaluateBadges(overview);
+      set({ overview, badges, isLoading: false });
     } catch (error) {
       console.error('Stats fetch error:', error);
       set({ isLoading: false });

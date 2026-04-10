@@ -198,7 +198,7 @@ export default function SettingsScreen() {
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>About</Text>
-        <Text style={[styles.versionText, { color: C.textSecondary }]}>FlowDay v1.5.0</Text>
+        <Text style={[styles.versionText, { color: C.textSecondary }]}>FlowDay v1.6.0</Text>
         <Text style={[styles.versionText, { color: C.textMuted }]}>Offline-first daily task tracker</Text>
       </View>
       </ScrollView>

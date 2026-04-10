@@ -82,6 +82,24 @@ export default function RecurringScreen() {
             <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
               <Text style={styles.deleteIcon}>🗑️</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push({
+                pathname: '/task/edit-recurring',
+                params: {
+                  id: item.id,
+                  title: item.title,
+                  description: item.description || '',
+                  category_id: item.category_id || 'cat_personal',
+                  priority: item.priority,
+                  due_time: item.due_time || '',
+                  frequency: item.frequency,
+                  days_of_week: item.days_of_week || '',
+                },
+              })}
+              style={styles.editBtn}
+            >
+              <Text style={styles.editIcon}>✏️</Text>
+            </TouchableOpacity>
           </View>
         )}
         ListEmptyComponent={() => (
@@ -118,8 +136,10 @@ const styles = StyleSheet.create({
   description: { fontSize: 13, marginBottom: 4 },
   frequency: { fontSize: 13, fontWeight: '500', marginBottom: 2 },
   category: { fontSize: 12, textTransform: 'capitalize' },
-  deleteBtn: { padding: 8, marginLeft: 8 },
+  deleteBtn: { padding: 8, marginLeft: 4 },
   deleteIcon: { fontSize: 20 },
+  editBtn: { padding: 8, marginLeft: 4 },
+  editIcon: { fontSize: 20 },
   emptyState: { alignItems: 'center', paddingTop: 80 },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },

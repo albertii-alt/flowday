@@ -71,7 +71,9 @@ export const deleteRecurringTask = async (id: string): Promise<void> => {
 // Generates today's tasks from active recurring tasks if not already generated
 // Optimized: single query to get all already-generated recurring task IDs for the date
 export const generateRecurringTasksForDate = async (date: string): Promise<void> => {
-  const dayOfWeek = new Date(date).getDay();
+  // Parse date parts directly to avoid timezone offset issues
+  const [year, month, day] = date.split('-').map(Number);
+  const dayOfWeek = new Date(year, month - 1, day).getDay();
   const recurringTasks = await getAllRecurringTasks();
   if (recurringTasks.length === 0) return;
 

@@ -1,8 +1,9 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useTheme } from '../../utils/useTheme';
+import { addRecurringTask, updateRecurringTask, deleteRecurringTask, getAllRecurringTasks, generateRecurringTasksForDate, Frequency } from '../../db/queries/recurring';
 
 const categories = [
   { id: 'cat_personal', name: 'Personal', color: '#4f46e5' },
@@ -19,8 +20,8 @@ const priorities = [
 ];
 
 export default function EditTaskScreen() {
-  const { id, title: initialTitle, description: initialDesc, category_id, priority: initialPriority, due_time, task_date } = useLocalSearchParams();
-  const { updateExistingTask, removeTask } = useTaskStore();
+  const { id, title: initialTitle, description: initialDesc, category_id, priority: initialPriority, due_time, task_date, recurring_task_id } = useLocalSearchParams();
+  const { updateExistingTask, removeTask, refreshTodayTasks } = useTaskStore();
   const C = useTheme();
 
   const [title, setTitle] = useState(initialTitle as string || '');
@@ -28,20 +29,92 @@ export default function EditTaskScreen() {
   const [selectedCategory, setSelectedCategory] = useState(category_id as string || 'cat_personal');
   const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high'>((initialPriority as 'low' | 'medium' | 'high') || 'medium');
   const [dueTime, setDueTime] = useState(due_time as string || '');
+  const [frequency, setFrequency] = useState<'none' | Frequency>('none');
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+
+  // Pre-populate frequency if this task is already recurring
+  useEffect(() => {
+    if (!recurring_task_id) return;
+    getAllRecurringTasks().then(tasks => {
+      const match = tasks.find(t => t.id === recurring_task_id);
+      if (match) {
+        setFrequency(match.frequency);
+        if (match.days_of_week) {
+          setSelectedDays(match.days_of_week.split(',').map(Number));
+        }
+      }
+    });
+  }, [recurring_task_id]);
 
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a task title');
       return;
     }
-    await updateExistingTask(id as string, {
+    if (frequency === 'weekly' && selectedDays.length === 0) {
+      Alert.alert('Error', 'Please select at least one day for weekly recurrence');
+      return;
+    }
+
+    const recurringPayload = {
       title: title.trim(),
       description: description.trim() || undefined,
       category_id: selectedCategory,
       priority: selectedPriority,
       due_time: dueTime || undefined,
-    });
-    router.back();
+      frequency: (frequency === 'weekly' && selectedDays.length === 7 ? 'daily' : frequency) as Frequency,
+      days_of_week: frequency === 'weekly' && selectedDays.length < 7 ? selectedDays.sort().join(',') : undefined,
+    };
+
+    if (frequency === 'none' && recurring_task_id) {
+      await deleteRecurringTask(recurring_task_id as string);
+      await updateExistingTask(id as string, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category_id: selectedCategory,
+        priority: selectedPriority,
+        due_time: dueTime || undefined,
+        recurring_task_id: undefined,
+      });
+    } else if (frequency !== 'none' && recurring_task_id) {
+      await updateExistingTask(id as string, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category_id: selectedCategory,
+        priority: selectedPriority,
+        due_time: dueTime || undefined,
+      });
+      await updateRecurringTask(recurring_task_id as string, recurringPayload);
+      // Regenerate so today's task reflects the updated schedule immediately
+      await generateRecurringTasksForDate(task_date as string);
+      await refreshTodayTasks(task_date as string);
+    } else if (frequency !== 'none' && !recurring_task_id) {
+      const newRecurringId = await addRecurringTask(recurringPayload);
+      await updateExistingTask(id as string, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category_id: selectedCategory,
+        priority: selectedPriority,
+        due_time: dueTime || undefined,
+        recurring_task_id: newRecurringId,
+      });
+      await generateRecurringTasksForDate(task_date as string);
+      await refreshTodayTasks(task_date as string);
+    } else {
+      await updateExistingTask(id as string, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category_id: selectedCategory,
+        priority: selectedPriority,
+        due_time: dueTime || undefined,
+      });
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const handleDelete = () => {
@@ -51,8 +124,15 @@ export default function EditTaskScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          if (recurring_task_id) {
+            await deleteRecurringTask(recurring_task_id as string);
+          }
           await removeTask(id as string, task_date as string);
-          router.back();
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
         },
       },
     ]);
@@ -149,6 +229,52 @@ export default function EditTaskScreen() {
           />
         </View>
 
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: C.textSecondary }]}>Make it Repeat</Text>
+          <View style={styles.priorityRow}>
+            {(['none', 'daily', 'weekly'] as const).map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[
+                  styles.priorityChip,
+                  { backgroundColor: C.surface, borderColor: C.border },
+                  frequency === f && { backgroundColor: C.primary, borderColor: C.primary },
+                ]}
+                onPress={() => setFrequency(f)}
+              >
+                <Text style={[styles.priorityText, { color: C.textSecondary }, frequency === f && { color: '#fff' }]}>
+                  {f === 'none' ? 'None' : f === 'daily' ? '🔁 Daily' : '📅 Weekly'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {frequency === 'weekly' && (
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: C.textSecondary }]}>Repeat On</Text>
+            <View style={styles.daysRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dayChip,
+                    { backgroundColor: C.surface, borderColor: C.border },
+                    selectedDays.includes(index) && { backgroundColor: C.primary, borderColor: C.primary },
+                  ]}
+                  onPress={() => setSelectedDays(prev =>
+                    prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
+                  )}
+                >
+                  <Text style={[styles.dayText, { color: C.textSecondary }, selectedDays.includes(index) && { color: '#fff' }]}>
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: C.primary }]} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
@@ -180,4 +306,7 @@ const styles = StyleSheet.create({
   priorityText: { fontSize: 14, fontWeight: '500' },
   saveButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  dayChip: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  dayText: { fontSize: 13, fontWeight: '600' },
 });

@@ -12,6 +12,18 @@ import { format } from 'date-fns';
 
 const TODAY = format(new Date(), 'yyyy-MM-dd');
 
+const DAY_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+const getRecurringLabel = (frequency?: string, daysOfWeek?: string): string | null => {
+  if (!frequency) return null;
+  if (frequency === 'daily') return 'Daily';
+  if (frequency === 'weekly' && daysOfWeek) {
+    const days = daysOfWeek.split(',').map(d => DAY_SHORT[Number(d)]);
+    return days.join(', ');
+  }
+  return 'Weekly';
+};
+
 export default function TodayScreen() {
   const { todayTasks, fetchTodayTasks, toggleTask, removeTask, isLoading } = useTaskStore();
   const { overview, fetchStats } = useStatsStore();
@@ -64,13 +76,24 @@ export default function TodayScreen() {
     toggleTask(id, currentStatus === 1, taskDate);
   };
 
-  const handleDelete = (id: string, taskDate: string, title: string) => {
+  const handleDelete = (id: string, taskDate: string, title: string, recurringTaskId?: string) => {
     Alert.alert('Delete Task', `Delete "${title}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => removeTask(id, taskDate),
+        onPress: async () => {
+          try {
+            if (recurringTaskId) {
+              const { deleteRecurringTask } = await import('../../db/queries/recurring');
+              await deleteRecurringTask(recurringTaskId);
+            }
+            await removeTask(id, taskDate);
+            fetchStats();
+          } catch {
+            Alert.alert('Error', 'Could not delete task');
+          }
+        },
       },
     ]);
   };
@@ -85,7 +108,7 @@ export default function TodayScreen() {
   const renderTask = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[styles.taskCard, { backgroundColor: C.surface }]}
-      onLongPress={() => handleDelete(item.id, item.task_date, item.title)}
+      onLongPress={() => handleDelete(item.id, item.task_date, item.title, item.recurring_task_id)}
       activeOpacity={0.7}
     >
       <TouchableOpacity
@@ -97,13 +120,20 @@ export default function TodayScreen() {
 
       <View style={styles.taskContent}>
         <Text style={[styles.taskTitle, { color: C.textPrimary }, item.is_completed === 1 && { textDecorationLine: 'line-through', color: C.textMuted }]}>
-          {item.title}{item.recurring_task_id ? ' 🔁' : ''}
+          {item.title}
         </Text>
         <View style={styles.taskMeta}>
           {item.category_id && (
             <Text style={[styles.metaText, { color: C.textSecondary }]}>{item.category_id.replace('cat_', '')}</Text>
           )}
           {item.due_time && <Text style={[styles.metaText, { color: C.textSecondary }]}>🕐 {item.due_time}</Text>}
+          {getRecurringLabel(item.frequency, item.days_of_week) && (
+            <View style={[styles.recurringBadge, { backgroundColor: C.primary + '15' }]}>
+              <Text style={[styles.recurringText, { color: C.primary }]}>
+                🔁 {getRecurringLabel(item.frequency, item.days_of_week)}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -125,6 +155,7 @@ export default function TodayScreen() {
             priority: item.priority,
             due_time: item.due_time || '',
             task_date: item.task_date,
+            recurring_task_id: item.recurring_task_id || '',
           },
         })}
       >
@@ -232,6 +263,8 @@ const styles = StyleSheet.create({
   taskTitle: { fontSize: 16, fontWeight: '500', marginBottom: 4 },
   taskMeta: { flexDirection: 'row', gap: 12 },
   metaText: { fontSize: 12 },
+  recurringBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 2 },
+  recurringText: { fontSize: 11, fontWeight: '600' },
   priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginRight: 8 },
   priorityText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
   editButton: { padding: 8, marginLeft: 4 },

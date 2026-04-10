@@ -7,6 +7,7 @@ interface TaskStore {
   todayTasks: Task[];
   isLoading: boolean;
   fetchTodayTasks: (date: string) => Promise<void>;
+  refreshTodayTasks: (date: string) => Promise<void>;
   addNewTask: (task: CreateTaskInput) => Promise<string>;
   updateExistingTask: (id: string, updates: Partial<Task>) => Promise<void>;
   toggleTask: (id: string, currentStatus: boolean, taskDate: string) => Promise<void>;
@@ -27,13 +28,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   fetchTodayTasks: async (date: string) => {
     set({ isLoading: true });
     try {
-      // Generate recurring tasks first, then fetch
       await generateRecurringTasksForDate(date);
       const tasks = await getTasksByDate(date);
       set({ todayTasks: tasks, isLoading: false });
     } catch (error) {
       logError('Fetch error', error);
       set({ isLoading: false });
+    }
+  },
+
+  // Refresh without regenerating — use after explicit generateRecurringTasksForDate call
+  refreshTodayTasks: async (date: string) => {
+    try {
+      const tasks = await getTasksByDate(date);
+      set({ todayTasks: tasks });
+    } catch (error) {
+      logError('Refresh error', error);
     }
   },
 

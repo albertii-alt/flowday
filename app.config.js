@@ -4,7 +4,7 @@ module.exports = {
   expo: {
     name: IS_DEV ? 'FlowDay (Dev)' : 'FlowDay',
     slug: 'flowday',
-    version: '1.5.0',
+    version: '1.6.0',
     orientation: 'portrait',
     icon: './assets/flowday-icon.png',
     userInterfaceStyle: 'automatic',
