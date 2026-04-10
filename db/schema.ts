@@ -79,7 +79,6 @@ export const createTables = async () => {
   `);
 
   await runMigrations();
-  console.log('✅ Database tables created successfully');
 };
 
 const runMigrations = async () => {
@@ -88,13 +87,11 @@ const runMigrations = async () => {
 
   if (!taskColNames.includes('recurring_task_id')) {
     await db.execAsync(`ALTER TABLE tasks ADD COLUMN recurring_task_id TEXT`);
-    console.log('✅ Migration: added recurring_task_id to tasks');
   }
 
   if (!taskColNames.includes('sort_order')) {
     await db.execAsync(`ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`);
     await db.execAsync(`UPDATE tasks SET sort_order = rowid WHERE sort_order = 0`);
-    console.log('✅ Migration: added sort_order to tasks');
   }
 
   const settingsColumns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(settings)`);
@@ -102,11 +99,9 @@ const runMigrations = async () => {
 
   if (!settingsColNames.includes('notifications_enabled')) {
     await db.execAsync(`ALTER TABLE settings ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 0`);
-    console.log('✅ Migration: added notifications_enabled to settings');
   }
   if (!settingsColNames.includes('reminder_time')) {
     await db.execAsync(`ALTER TABLE settings ADD COLUMN reminder_time TEXT NOT NULL DEFAULT '08:00'`);
-    console.log('✅ Migration: added reminder_time to settings');
   }
 };
 

@@ -17,8 +17,11 @@ interface TaskStore {
 
 const pendingToggles = new Set<string>();
 
+const sanitizeLog = (value: string): string => value.replace(/[\r\n\t]/g, ' ').trim();
+
 const logError = (context: string, error: unknown) => {
-  console.error(`${context}:`, error instanceof Error ? error.message : 'Unknown error');
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  console.error(`${sanitizeLog(context)}: ${sanitizeLog(message)}`);
 };
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
