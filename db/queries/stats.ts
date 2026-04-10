@@ -17,17 +17,23 @@ export interface StatsOverview {
   dailyStats: DailyStat[];
 }
 
-// Upsert daily stats for a given date — called after every task mutation
-export const updateDailyStats = async (date: string): Promise<void> => {
-  const tasks = await db.getAllAsync<{ is_completed: number }>(
-    'SELECT is_completed FROM tasks WHERE task_date = ?',
-    date
-  );
+// Upsert daily stats — accepts pre-computed values to avoid redundant DB reads
+export const updateDailyStats = async (date: string, total?: number, completed?: number): Promise<void> => {
+  let t = total;
+  let c = completed;
 
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.is_completed === 1).length;
-  const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const streakEligible = total > 0 && rate >= 80 ? 1 : 0;
+  // Only query DB if values not provided
+  if (t === undefined || c === undefined) {
+    const tasks = await db.getAllAsync<{ is_completed: number }>(
+      'SELECT is_completed FROM tasks WHERE task_date = ?',
+      date
+    );
+    t = tasks.length;
+    c = tasks.filter(task => task.is_completed === 1).length;
+  }
+
+  const rate = t > 0 ? Math.round((c / t) * 100) : 0;
+  const streakEligible = t > 0 && rate >= 80 ? 1 : 0;
 
   await db.runAsync(
     `INSERT INTO daily_stats (id, date, total_tasks, completed_tasks, completion_rate, streak_eligible, updated_at)
@@ -38,12 +44,7 @@ export const updateDailyStats = async (date: string): Promise<void> => {
        completion_rate = excluded.completion_rate,
        streak_eligible = excluded.streak_eligible,
        updated_at = date('now')`,
-    `stat_${date}`,
-    date,
-    total,
-    completed,
-    rate,
-    streakEligible
+    `stat_${date}`, date, t, c, rate, streakEligible
   );
 };
 

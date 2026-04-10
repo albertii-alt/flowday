@@ -1,10 +1,11 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { useTheme } from '../../utils/useTheme';
 import GradientHeader from '../../components/GradientHeader';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
@@ -15,6 +16,8 @@ export default function TodayScreen() {
   const { todayTasks, fetchTodayTasks, toggleTask, removeTask, isLoading } = useTaskStore();
   const { overview, fetchStats } = useStatsStore();
   const C = useTheme();
+  const confettiRef = useRef<ConfettiCannon>(null);
+  const [hasShownConfetti, setHasShownConfetti] = useState(false);
 
   useEffect(() => {
     fetchTodayTasks(TODAY);
@@ -22,7 +25,8 @@ export default function TodayScreen() {
   }, []);
 
   const completedCount = todayTasks.filter(t => t.is_completed === 1).length;
-  const progress = todayTasks.length > 0 ? (completedCount / todayTasks.length) * 100 : 0;
+  const totalCount = todayTasks.length;
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -46,7 +50,18 @@ export default function TodayScreen() {
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    toggleTask(id, currentStatus === 1, taskDate).then(() => fetchStats());
+
+    // Predict progress before DB call — fire confetti instantly
+    const newCompletedCount = completing ? completedCount + 1 : completedCount - 1;
+    const newProgress = totalCount > 0 ? (newCompletedCount / totalCount) * 100 : 0;
+    if (newProgress === 100 && totalCount > 0 && !hasShownConfetti) {
+      setHasShownConfetti(true);
+      confettiRef.current?.start();
+    }
+    if (newProgress < 100) setHasShownConfetti(false);
+
+    // Fire and forget — UI already updated optimistically
+    toggleTask(id, currentStatus === 1, taskDate);
   };
 
   const handleDelete = (id: string, taskDate: string, title: string) => {
@@ -55,14 +70,7 @@ export default function TodayScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await removeTask(id, taskDate);
-            fetchStats();
-          } catch {
-            Alert.alert('Error', 'Could not delete task');
-          }
-        },
+        onPress: () => removeTask(id, taskDate),
       },
     ]);
   };
@@ -146,20 +154,20 @@ export default function TodayScreen() {
         <Text style={[styles.progressStats, { color: C.textPrimary }]}>
           {completedCount} of {todayTasks.length} tasks completed
         </Text>
-        {progress === 100 && todayTasks.length > 0 && (
+        {progress === 100 && totalCount > 0 && (
           <Text style={[styles.motivationText, { color: C.textSecondary }]}>🎉 Amazing day! You crushed it!</Text>
         )}
         {progress > 0 && progress < 100 && (
-          <Text style={[styles.motivationText, { color: C.textSecondary }]}>{todayTasks.length - completedCount} more to go!</Text>
+          <Text style={[styles.motivationText, { color: C.textSecondary }]}>{totalCount - completedCount} more to go!</Text>
         )}
-        {todayTasks.length === 0 && (
+        {totalCount === 0 && (
           <Text style={[styles.motivationText, { color: C.textSecondary }]}>✨ Add your first task to start</Text>
         )}
       </View>
 
       <View style={styles.listHeader}>
         <Text style={[styles.listTitle, { color: C.textPrimary }]}>Today's Tasks</Text>
-        <Text style={[styles.taskCount, { color: C.textSecondary }]}>{todayTasks.length} tasks</Text>
+        <Text style={[styles.taskCount, { color: C.textSecondary }]}>{totalCount} tasks</Text>
       </View>
 
       {isLoading ? (
@@ -186,6 +194,17 @@ export default function TodayScreen() {
       <TouchableOpacity style={[styles.fab, { backgroundColor: C.primary }]} onPress={() => router.push('/task/create')} activeOpacity={0.8}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      <ConfettiCannon
+        ref={confettiRef}
+        count={120}
+        origin={{ x: Dimensions.get('window').width / 2, y: -20 }}
+        autoStart={false}
+        fadeOut
+        fallSpeed={3000}
+        explosionSpeed={350}
+        colors={['#4f46e5', '#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#fff']}
+      />
     </SafeAreaView>
   );
 }

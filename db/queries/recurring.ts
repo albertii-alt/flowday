@@ -69,12 +69,22 @@ export const deleteRecurringTask = async (id: string): Promise<void> => {
 };
 
 // Generates today's tasks from active recurring tasks if not already generated
+// Optimized: single query to get all already-generated recurring task IDs for the date
 export const generateRecurringTasksForDate = async (date: string): Promise<void> => {
-  const dayOfWeek = new Date(date).getDay(); // 0=Sun ... 6=Sat
+  const dayOfWeek = new Date(date).getDay();
   const recurringTasks = await getAllRecurringTasks();
+  if (recurringTasks.length === 0) return;
+
+  // Single query to get all recurring task IDs already generated for this date
+  const existing = await db.getAllAsync<{ recurring_task_id: string }>(
+    `SELECT recurring_task_id FROM tasks WHERE task_date = ? AND recurring_task_id IS NOT NULL`,
+    date
+  );
+  const existingIds = new Set(existing.map(r => r.recurring_task_id));
 
   for (const recurring of recurringTasks) {
-    // Check if this recurring task should run today
+    if (existingIds.has(recurring.id)) continue;
+
     const shouldRun = recurring.frequency === 'daily'
       || (recurring.frequency === 'weekly'
         && recurring.days_of_week
@@ -82,16 +92,6 @@ export const generateRecurringTasksForDate = async (date: string): Promise<void>
 
     if (!shouldRun) continue;
 
-    // Check if already generated for today (avoid duplicates)
-    const existing = await db.getFirstAsync<{ id: string }>(
-      `SELECT id FROM tasks WHERE task_date = ? AND recurring_task_id = ?`,
-      date,
-      recurring.id
-    );
-
-    if (existing) continue;
-
-    // Generate the task for today
     await db.runAsync(
       `INSERT INTO tasks (id, title, description, category_id, priority, due_time, task_date, is_completed, recurring_task_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,

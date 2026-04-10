@@ -15,6 +15,11 @@ interface TaskStore {
 
 const pendingToggles = new Set<string>();
 
+// Silent background error logger — never blocks UI
+const logError = (context: string, error: unknown) => {
+  console.error(`${context}:`, error instanceof Error ? error.message : 'Unknown error');
+};
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   todayTasks: [],
   isLoading: false,
@@ -22,19 +27,21 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   fetchTodayTasks: async (date: string) => {
     set({ isLoading: true });
     try {
+      // Generate recurring tasks first, then fetch
       await generateRecurringTasksForDate(date);
       const tasks = await getTasksByDate(date);
       set({ todayTasks: tasks, isLoading: false });
     } catch (error) {
-      console.error('Fetch error:', error);
+      logError('Fetch error', error);
       set({ isLoading: false });
     }
   },
 
   addNewTask: async (task: CreateTaskInput) => {
     const id = await addTask(task);
-    await updateDailyStats(task.task_date);
+    // Refresh task list, update stats in background
     await get().fetchTodayTasks(task.task_date);
+    updateDailyStats(task.task_date).catch(err => logError('Stats update', err));
     return id;
   },
 
@@ -43,8 +50,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const { todayTasks } = get();
     if (todayTasks.length > 0 && todayTasks[0]?.task_date) {
       const date = todayTasks[0].task_date;
-      await updateDailyStats(date);
       await get().fetchTodayTasks(date);
+      updateDailyStats(date).catch(err => logError('Stats update', err));
     }
   },
 
@@ -52,7 +59,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (pendingToggles.has(id)) return;
     pendingToggles.add(id);
 
-    // Optimistic UI update
+    // Optimistic UI update — instant, no DB wait
     set(state => ({
       todayTasks: state.todayTasks.map(task =>
         task.id === id ? { ...task, is_completed: task.is_completed === 1 ? 0 : 1 } : task
@@ -61,10 +68,19 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     try {
       await toggleTaskCompletion(id, !currentStatus);
-      await updateDailyStats(taskDate);
+
+      // Compute updated stats from current state — no extra DB read needed
+      const { todayTasks } = get();
+      const total = todayTasks.length;
+      const completed = todayTasks.filter(t => t.is_completed === 1).length;
+
+      // Fire and forget — never blocks UI
+      updateDailyStats(taskDate, total, completed).catch(err =>
+        logError('Stats update', err)
+      );
     } catch (error) {
-      console.error('Toggle error:', error instanceof Error ? error.message : 'Unknown error');
-      // Revert on failure
+      logError('Toggle error', error);
+      // Revert optimistic update on failure
       set(state => ({
         todayTasks: state.todayTasks.map(task =>
           task.id === id ? { ...task, is_completed: task.is_completed === 1 ? 0 : 1 } : task
@@ -78,10 +94,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   removeTask: async (id: string, taskDate: string) => {
     try {
       await deleteTask(id);
-      await updateDailyStats(taskDate);
       await get().fetchTodayTasks(taskDate);
+      updateDailyStats(taskDate).catch(err => logError('Stats update', err));
     } catch (error) {
-      console.error('Delete error:', error);
+      logError('Delete error', error);
     }
   },
 }));

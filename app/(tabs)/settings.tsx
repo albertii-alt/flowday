@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUIStore } from '../../store/useUIStore';
 import { useTheme } from '../../utils/useTheme';
@@ -117,6 +117,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
       <GradientHeader title="Settings" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Tasks</Text>
@@ -200,12 +201,14 @@ export default function SettingsScreen() {
         <Text style={[styles.versionText, { color: C.textSecondary }]}>FlowDay v1.3.0</Text>
         <Text style={[styles.versionText, { color: C.textMuted }]}>Offline-first daily task tracker</Text>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
   section: { marginHorizontal: 16, marginTop: 16, marginBottom: 0, padding: 16, borderRadius: 16, borderWidth: 1 },
   sectionTitle: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
