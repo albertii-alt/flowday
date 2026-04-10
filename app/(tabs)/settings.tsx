@@ -13,6 +13,7 @@ import {
   loadNotificationSettings,
   saveNotificationSettings,
 } from '../../utils/notifications';
+import { exportTasksToCSV } from '../../utils/export';
 
 export default function SettingsScreen() {
   const { isDarkMode, setDarkMode } = useUIStore();
@@ -61,6 +62,23 @@ export default function SettingsScreen() {
     await saveNotificationSettings(notificationsEnabled, timeInput);
     if (notificationsEnabled) {
       await scheduleDailyReminder(timeInput);
+    }
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const { savedToDownloads } = await exportTasksToCSV();
+      if (savedToDownloads) {
+        Alert.alert('Export Successful', 'Your tasks have been saved to the selected folder.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Export failed';
+      Alert.alert('Export Failed', message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -162,6 +180,16 @@ export default function SettingsScreen() {
 
       <View style={[styles.section, { backgroundColor: C.surface, borderColor: C.border }]}>
         <Text style={[styles.sectionTitle, { color: C.textMuted }]}>Data</Text>
+        <TouchableOpacity
+          style={[styles.exportButton, { backgroundColor: C.primary + '15', borderColor: C.primary }]}
+          onPress={handleExport}
+          disabled={isExporting}
+        >
+          <Text style={[styles.exportButtonText, { color: C.primary }]}>
+            {isExporting ? 'Exporting...' : '📤 Export Tasks to CSV'}
+          </Text>
+        </TouchableOpacity>
+        <View style={[styles.divider, { backgroundColor: C.border }]} />
         <TouchableOpacity style={[styles.dangerButton, { backgroundColor: C.error + '20' }]} onPress={hardReset}>
           <Text style={[styles.dangerButtonText, { color: C.error }]}>Reset All Data</Text>
         </TouchableOpacity>
@@ -191,6 +219,9 @@ const styles = StyleSheet.create({
   saveTimeBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   saveTimeBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   timeValue: { fontSize: 16, fontWeight: '600' },
+  exportButton: { padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, marginBottom: 12 },
+  exportButtonText: { fontSize: 16, fontWeight: '600' },
+  divider: { height: 1, marginBottom: 12 },
   dangerButton: { padding: 14, borderRadius: 12, alignItems: 'center' },
   dangerButtonText: { fontSize: 16, fontWeight: '600' },
   versionText: { fontSize: 14, marginBottom: 4 },
