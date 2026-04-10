@@ -1,11 +1,19 @@
 import { create } from 'zustand';
-import { getStatsOverview, StatsOverview } from '../db/queries/stats';
+import { getStatsOverview, StatsOverview, Insights } from '../db/queries/stats';
 
 interface StatsStore {
   overview: StatsOverview;
   isLoading: boolean;
   fetchStats: () => Promise<void>;
 }
+
+const defaultInsights: Insights = {
+  mostProductiveDay: null,
+  averageCompletionRate: 0,
+  mostConsistentCategory: null,
+  totalActiveDays: 0,
+  mostTasksAddedOn: null,
+};
 
 const defaultOverview: StatsOverview = {
   totalTasks: 0,
@@ -14,6 +22,7 @@ const defaultOverview: StatsOverview = {
   currentStreak: 0,
   bestStreak: 0,
   dailyStats: [],
+  insights: defaultInsights,
 };
 
 export const useStatsStore = create<StatsStore>((set) => ({

@@ -7,7 +7,7 @@ import GradientHeader from '../../components/GradientHeader';
 
 export default function StatsScreen() {
   const { overview, isLoading, fetchStats } = useStatsStore();
-  const { totalTasks, completedTasks, completionRate, currentStreak, bestStreak, dailyStats } = overview;
+  const { totalTasks, completedTasks, completionRate, currentStreak, bestStreak, dailyStats, insights } = overview;
   const C = useTheme();
 
   useEffect(() => {
@@ -78,6 +78,41 @@ export default function StatsScreen() {
               </View>
             ))}
           </View>
+
+          {/* Insights Card */}
+          <View style={[styles.insightsCard, { backgroundColor: C.surface }]}>
+            <Text style={[styles.dailyTitle, { color: C.textPrimary }]}>✨ Insights</Text>
+            {[
+              insights.mostProductiveDay && {
+                emoji: '📈',
+                text: `Most productive day: ${insights.mostProductiveDay}`,
+              },
+              insights.averageCompletionRate > 0 && {
+                emoji: '🎯',
+                text: `You complete ${insights.averageCompletionRate}% of tasks on average`,
+              },
+              insights.mostConsistentCategory && {
+                emoji: '🏷️',
+                text: `Most consistent category: ${insights.mostConsistentCategory}`,
+              },
+              insights.totalActiveDays > 0 && {
+                emoji: '📅',
+                text: `Active on ${insights.totalActiveDays} day${insights.totalActiveDays === 1 ? '' : 's'} total`,
+              },
+              insights.mostTasksAddedOn && {
+                emoji: '✍️',
+                text: `You add most tasks on ${insights.mostTasksAddedOn}`,
+              },
+            ]
+              .filter(Boolean)
+              .map((insight: any, i) => (
+                <View key={i} style={[styles.insightRow, { borderBottomColor: C.border }]}>
+                  <Text style={styles.insightEmoji}>{insight.emoji}</Text>
+                  <Text style={[styles.insightText, { color: C.textPrimary }]}>{insight.text}</Text>
+                </View>
+              ))
+            }
+          </View>
         </>
       )}
       </ScrollView>
@@ -110,4 +145,8 @@ const styles = StyleSheet.create({
   dayBar: { height: '100%', borderRadius: 4 },
   dayRate: { width: 38, fontSize: 12, fontWeight: '600', textAlign: 'right' },
   streakDot: { fontSize: 14, marginLeft: 6 },
+  insightsCard: { margin: 20, marginTop: 0, padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1, marginBottom: 32 },
+  insightRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
+  insightEmoji: { fontSize: 20, marginRight: 12 },
+  insightText: { flex: 1, fontSize: 14, lineHeight: 20 },
 });
