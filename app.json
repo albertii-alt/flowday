@@ -17,14 +17,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.albertii.flowday"
+      "bundleIdentifier": "com.yourcompany.flowday"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/flowday-icon.png",
         "backgroundColor": "#4f46e5"
       },
-      "package": "com.albertii.flowday"
+      "package": "com.yourcompany.flowday"
     },
     "web": {
       "favicon": "./assets/favicon.png"

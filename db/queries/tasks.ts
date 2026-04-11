@@ -109,16 +109,14 @@ export const deleteTask = async (id: string): Promise<void> => {
   await db.runAsync('DELETE FROM tasks WHERE id = ?', id);
 };
 
-// Update sort order — fully parameterized, one query per task in a loop
+// Update sort order — single SQL statement, instant
 export const updateTaskOrder = async (orderedIds: string[]): Promise<void> => {
   if (orderedIds.length === 0) return;
-  for (let i = 0; i < orderedIds.length; i++) {
-    await db.runAsync(
-      `UPDATE tasks SET sort_order = ? WHERE id = ?`,
-      i,
-      orderedIds[i]
-    );
-  }
+  const cases = orderedIds.map((id, i) => `WHEN '${id}' THEN ${i}`).join(' ');
+  const inList = orderedIds.map(id => `'${id}'`).join(',');
+  await db.execAsync(
+    `UPDATE tasks SET sort_order = CASE id ${cases} END WHERE id IN (${inList})`
+  );
 };
 
 // Get tasks for a date range

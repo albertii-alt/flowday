@@ -17,14 +17,14 @@ module.exports = {
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: IS_DEV ? 'com.albertii.flowday.dev' : 'com.albertii.flowday',
+      bundleIdentifier: IS_DEV ? 'com.yourcompany.flowday.dev' : 'com.yourcompany.flowday',
     },
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/flowday-icon.png',
         backgroundColor: '#4f46e5',
       },
-      package: IS_DEV ? 'com.albertii.flowday.dev' : 'com.albertii.flowday',
+      package: IS_DEV ? 'com.yourcompany.flowday.dev' : 'com.yourcompany.flowday',
     },
     web: {
       favicon: './assets/favicon.png',
