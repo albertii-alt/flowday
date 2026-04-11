@@ -188,24 +188,33 @@ export default function CreateTaskScreen() {
         {frequency === 'weekly' && (
           <View style={styles.field}>
             <Text style={[styles.label, { color: C.textSecondary }]}>Repeat On</Text>
+            <Text style={[styles.todayHint, { color: C.textMuted }]}>
+              Today is {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()]}
+            </Text>
             <View style={styles.daysRow}>
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dayChip,
-                    { backgroundColor: C.surface, borderColor: C.border },
-                    selectedDays.includes(index) && { backgroundColor: C.primary, borderColor: C.primary },
-                  ]}
-                  onPress={() => setSelectedDays(prev =>
-                    prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
-                  )}
-                >
-                  <Text style={[styles.dayText, { color: C.textSecondary }, selectedDays.includes(index) && { color: '#fff' }]}>
-                    {day}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => {
+                const isToday = index === new Date().getDay();
+                const isSelected = selectedDays.includes(index);
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.dayChip,
+                      { backgroundColor: C.surface, borderColor: C.border },
+                      isToday && !isSelected && { borderColor: C.primary },
+                      isSelected && { backgroundColor: C.primary, borderColor: C.primary },
+                    ]}
+                    onPress={() => setSelectedDays(prev =>
+                      prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
+                    )}
+                  >
+                    <Text style={[styles.dayText, { color: isSelected ? '#fff' : isToday ? C.primary : C.textSecondary }]}>
+                      {day}
+                    </Text>
+                    {isToday && <View style={[styles.todayDot, { backgroundColor: isSelected ? '#fff' : C.primary }]} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
@@ -243,4 +252,6 @@ const styles = StyleSheet.create({
   daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dayChip: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   dayText: { fontSize: 13, fontWeight: '600' },
+  todayHint: { fontSize: 12, marginBottom: 8, marginTop: -4 },
+  todayDot: { width: 4, height: 4, borderRadius: 2, position: 'absolute', bottom: 5 },
 });

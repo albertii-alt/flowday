@@ -4,8 +4,7 @@ import { createTables } from './schema';
 export const initDatabase = async () => {
   try {
     await createTables();
-    console.log('Database initialized successfully');
   } catch (error) {
-    console.error('Database initialization failed:', error);
+    console.error('Database initialization failed:', error instanceof Error ? error.message : 'Unknown error');
   }
 };
