@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay, addMonths, subMonths } from 'date-fns';
 import { getTasksByDateRange, getTasksByDate, Task } from '../../db/queries/tasks';
@@ -15,6 +16,7 @@ export default function CalendarScreen() {
   const [tasksForSelectedDate, setTasksForSelectedDate] = useState<Task[]>([]);
   const [completionMap, setCompletionMap] = useState<Record<string, number>>({});
   const C = useTheme();
+  const { bottom } = useSafeAreaInsets();
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -68,19 +70,18 @@ export default function CalendarScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
-      <GradientHeader title="Calendar">
-        <Text style={styles.calendarHeaderTitle}>Calendar</Text>
-        <View style={styles.calendarNavRow}>
-          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navBtn}>
-            <Text style={styles.navButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.monthTitle}>{format(currentMonth, 'MMMM yyyy')}</Text>
-          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navBtn}>
-            <Text style={styles.navButtonText}>→</Text>
-          </TouchableOpacity>
-        </View>
-      </GradientHeader>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={[]}>
+      <GradientHeader title="Calendar" subtitle="Review your task history" />
+
+      <View style={[styles.monthNav, { backgroundColor: C.surface, borderBottomColor: C.border }]}>
+        <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navBtn}>
+          <Ionicons name="chevron-back" size={22} color={C.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.monthTitle, { color: C.textPrimary }]}>{format(currentMonth, 'MMMM yyyy')}</Text>
+        <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navBtn}>
+          <Ionicons name="chevron-forward" size={22} color={C.textPrimary} />
+        </TouchableOpacity>
+      </View>
 
       <View style={[styles.weekHeader, { backgroundColor: C.surface }]}>
         {WEEKDAYS.map(day => (
@@ -137,13 +138,18 @@ export default function CalendarScreen() {
           renderItem={({ item }) => (
             <View style={[styles.historyTaskCard, { borderBottomColor: C.border }]}>
               <View style={[styles.historyCheckbox, { borderColor: C.primary }, item.is_completed === 1 && { backgroundColor: C.primary }]}>
-                {item.is_completed === 1 && <Text style={styles.historyCheckmark}>✓</Text>}
+                {item.is_completed === 1 && <Ionicons name="checkmark" size={11} color="#fff" />}
               </View>
               <View style={styles.historyTaskContent}>
-                <Text style={[styles.historyTaskTitle, { color: C.textPrimary }, item.is_completed === 1 && { textDecorationLine: 'line-through', color: C.textMuted }]}>
+                <Text style={[styles.historyTaskTitle, { color: C.textPrimary }, item.is_completed === 1 && { color: C.textMuted }]}>
                   {item.title}
                 </Text>
-                {item.due_time && <Text style={[styles.historyTaskMeta, { color: C.textMuted }]}>🕐 {item.due_time}</Text>}
+                {item.due_time && (
+                  <View style={styles.metaRow}>
+                    <Ionicons name="time-outline" size={11} color={C.textMuted} />
+                    <Text style={[styles.historyTaskMeta, { color: C.textMuted }]}> {item.due_time}</Text>
+                  </View>
+                )}
               </View>
               <Text style={[styles.priorityDot, { color: getPriorityColor(item.priority) }]}>●</Text>
             </View>
@@ -151,6 +157,7 @@ export default function CalendarScreen() {
           ListEmptyComponent={() => (
             <Text style={[styles.emptyTasksText, { color: C.textMuted }]}>No tasks for this day</Text>
           )}
+          contentContainerStyle={{ paddingBottom: bottom + 4 + 64 + 16 }}
         />
       </View>
     </SafeAreaView>
@@ -159,30 +166,28 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  calendarHeaderTitle: { fontSize: 28, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  calendarNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  navBtn: { padding: 8 },
-  navButtonText: { fontSize: 24, color: '#fff' },
-  monthTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  weekHeader: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 8 },
-  weekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingBottom: 8 },
+  monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  navBtn: { padding: 6 },
+  monthTitle: { fontSize: 14, fontWeight: '600', letterSpacing: -0.2 },
+  weekHeader: { flexDirection: 'row', paddingHorizontal: 4, paddingVertical: 6 },
+  weekDay: { flex: 1, textAlign: 'center', fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 4, paddingBottom: 6 },
   dayCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center' },
-  dayInner: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  dayNumber: { fontSize: 14 },
-  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
-  legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingVertical: 8, borderBottomWidth: 1 },
+  dayInner: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  dayNumber: { fontSize: 12, letterSpacing: 0.1 },
+  dot: { width: 3, height: 3, borderRadius: 2, marginTop: 1 },
+  legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11 },
-  tasksSection: { flex: 1, marginTop: 12, padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  tasksTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
-  historyTaskCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
-  historyCheckbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
-  historyCheckmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  legendDot: { width: 6, height: 6, borderRadius: 3 },
+  legendText: { fontSize: 10, letterSpacing: 0.1 },
+  tasksSection: { flex: 1, marginTop: 6, paddingHorizontal: 16, paddingTop: 14, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  tasksTitle: { fontSize: 13, fontWeight: '700', marginBottom: 10, letterSpacing: -0.2 },
+  historyTaskCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth },
+  historyCheckbox: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, marginRight: 10, justifyContent: 'center', alignItems: 'center' },
   historyTaskContent: { flex: 1 },
-  historyTaskTitle: { fontSize: 15 },
-  historyTaskMeta: { fontSize: 12, marginTop: 2 },
-  priorityDot: { fontSize: 10, marginLeft: 8 },
-  emptyTasksText: { textAlign: 'center', paddingTop: 40 },
+  historyTaskTitle: { fontSize: 13, fontWeight: '500', letterSpacing: 0.1 },
+  historyTaskMeta: { fontSize: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  priorityDot: { fontSize: 8, marginLeft: 6 },
+  emptyTasksText: { textAlign: 'center', paddingTop: 32, fontSize: 12 },
 });

@@ -1,10 +1,14 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useTheme } from '../../utils/useTheme';
 import { addRecurringTask, generateRecurringTasksForDate, Frequency } from '../../db/queries/recurring';
 import { format } from 'date-fns';
+import TimePicker from '../../components/TimePicker';
+import { scheduleTaskNotification, requestNotificationPermission } from '../../utils/notifications';
+import GradientHeader from '../../components/GradientHeader';
 
 const categories = [
   { id: 'cat_personal', name: 'Personal', color: '#4f46e5' },
@@ -60,7 +64,7 @@ export default function CreateTaskScreen() {
         await refreshTodayTasks(today);
       }
     } else {
-      await addNewTask({
+      const taskId = await addNewTask({
         title: title.trim(),
         description: description.trim() || undefined,
         category_id: selectedCategory,
@@ -68,6 +72,13 @@ export default function CreateTaskScreen() {
         due_time: dueTime || undefined,
         task_date: today,
       });
+      // Schedule notification if due time is set
+      if (dueTime && taskId) {
+        const granted = await requestNotificationPermission();
+        if (granted) {
+          await scheduleTaskNotification(taskId, title.trim(), today, dueTime);
+        }
+      }
     }
     router.back();
   };
@@ -77,10 +88,11 @@ export default function CreateTaskScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <GradientHeader title="New Task" compact />
       <ScrollView style={[styles.container, { backgroundColor: C.background }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.form}>
         <View style={styles.field}>
-          <Text style={[styles.label, { color: C.textSecondary }]}>Task Title *</Text>
+          <Text style={[styles.label, { color: C.textMuted }]}>Task Title *</Text>
           <TextInput
             style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }]}
             placeholder="What needs to be done?"
@@ -92,7 +104,7 @@ export default function CreateTaskScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: C.textSecondary }]}>Description (Optional)</Text>
+          <Text style={[styles.label, { color: C.textMuted }]}>Description (Optional)</Text>
           <TextInput
             style={[styles.input, styles.textArea, { backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }]}
             placeholder="Add details..."
@@ -105,7 +117,7 @@ export default function CreateTaskScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: C.textSecondary }]}>Category</Text>
+          <Text style={[styles.label, { color: C.textMuted }]}>Category</Text>
           <View style={styles.categoryGrid}>
             {categories.map((cat) => (
               <TouchableOpacity
@@ -130,7 +142,7 @@ export default function CreateTaskScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: C.textSecondary }]}>Priority</Text>
+          <Text style={[styles.label, { color: C.textMuted }]}>Priority</Text>
           <View style={styles.priorityRow}>
             {priorities.map((p) => (
               <TouchableOpacity
@@ -154,18 +166,12 @@ export default function CreateTaskScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: C.textSecondary }]}>Due Time (Optional)</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }]}
-            placeholder="e.g., 3:00 PM"
-            placeholderTextColor={C.textMuted}
-            value={dueTime}
-            onChangeText={setDueTime}
-          />
+          <Text style={[styles.label, { color: C.textMuted }]}>Due Time (Optional)</Text>
+          <TimePicker value={dueTime} onChange={setDueTime} C={C} />
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: C.textSecondary }]}>Repeat</Text>
+          <Text style={[styles.label, { color: C.textMuted }]}>Repeat</Text>
           <View style={styles.priorityRow}>
             {(['none', 'daily', 'weekly'] as const).map((f) => (
               <TouchableOpacity
@@ -177,8 +183,10 @@ export default function CreateTaskScreen() {
                 ]}
                 onPress={() => setFrequency(f)}
               >
+                {f === 'daily' && <Ionicons name="repeat" size={13} color={frequency === f ? '#fff' : C.textSecondary} style={{ marginRight: 4 }} />}
+                {f === 'weekly' && <Ionicons name="calendar-outline" size={13} color={frequency === f ? '#fff' : C.textSecondary} style={{ marginRight: 4 }} />}
                 <Text style={[styles.priorityText, { color: C.textSecondary }, frequency === f && { color: '#fff' }]}>
-                  {f === 'none' ? 'None' : f === 'daily' ? '🔁 Daily' : '📅 Weekly'}
+                  {f === 'none' ? 'None' : f === 'daily' ? 'Daily' : 'Weekly'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -187,7 +195,7 @@ export default function CreateTaskScreen() {
 
         {frequency === 'weekly' && (
           <View style={styles.field}>
-            <Text style={[styles.label, { color: C.textSecondary }]}>Repeat On</Text>
+            <Text style={[styles.label, { color: C.textMuted }]}>Repeat On</Text>
             <Text style={[styles.todayHint, { color: C.textMuted }]}>
               Today is {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()]}
             </Text>
@@ -230,28 +238,23 @@ export default function CreateTaskScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, borderBottomWidth: 1 },
-  backButton: { padding: 8 },
-  backText: { fontSize: 28 },
-  headerTitle: { fontSize: 20, fontWeight: '600' },
-  placeholder: { width: 40 },
-  form: { padding: 20 },
-  field: { marginBottom: 24 },
-  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  categoryDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  categoryText: { fontSize: 14 },
-  priorityRow: { flexDirection: 'row', gap: 12 },
-  priorityChip: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
-  priorityText: { fontSize: 14, fontWeight: '500' },
-  saveButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  form: { padding: 16, paddingBottom: 40 },
+  field: { marginBottom: 18 },
+  label: { fontSize: 11, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.7 },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 13, fontSize: 15 },
+  textArea: { height: 76, textAlignVertical: 'top' },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
+  categoryDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  categoryText: { fontSize: 13 },
+  priorityRow: { flexDirection: 'row', gap: 10 },
+  priorityChip: { flex: 1, flexDirection: 'row', paddingVertical: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  priorityText: { fontSize: 13, fontWeight: '500' },
+  saveButton: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16 },
+  saveButtonText: { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
   daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayChip: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  dayText: { fontSize: 13, fontWeight: '600' },
-  todayHint: { fontSize: 12, marginBottom: 8, marginTop: -4 },
-  todayDot: { width: 4, height: 4, borderRadius: 2, position: 'absolute', bottom: 5 },
+  dayChip: { width: 38, height: 38, borderRadius: 19, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', alignItems: 'center' },
+  dayText: { fontSize: 12, fontWeight: '600' },
+  todayHint: { fontSize: 11, marginBottom: 8, marginTop: -4 },
+  todayDot: { width: 3, height: 3, borderRadius: 2, position: 'absolute', bottom: 5 },
 });

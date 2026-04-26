@@ -1,10 +1,13 @@
 import { Stack, router } from 'expo-router';
 import { useEffect } from 'react';
+import { TouchableOpacity } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { initDatabase } from '../db';
 import { useUIStore } from '../store/useUIStore';
 import { db } from '../db/schema';
+import { loadNotificationSettings, scheduleDailyReminder } from '../utils/notifications';
 
 export default function RootLayout() {
   const loadTheme = useUIStore(s => s.loadTheme);
@@ -13,6 +16,12 @@ export default function RootLayout() {
     const init = async () => {
       await initDatabase();
       await loadTheme();
+
+      // Restore notification if it was enabled — handles app reinstall / OS reboot
+      const { enabled, reminderTime } = await loadNotificationSettings();
+      if (enabled) {
+        await scheduleDailyReminder(reminderTime);
+      }
 
       // Check if onboarding has been completed
       const row = await db.getFirstAsync<{ onboarding_completed: number }>(
@@ -33,39 +42,19 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen
           name="task/create"
-          options={{
-            headerShown: true,
-            headerTitle: 'New Task',
-            headerStyle: { backgroundColor: '#4f46e5' },
-            headerTintColor: '#fff',
-            presentation: 'modal',
-          }}
+          options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
           name="task/edit"
-          options={{
-            headerShown: true,
-            headerTitle: 'Edit Task',
-            headerStyle: { backgroundColor: '#4f46e5' },
-            headerTintColor: '#fff',
-            presentation: 'modal',
-          }}
+          options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
           name="task/recurring"
-          options={{
-            headerShown: false,
-          }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="task/edit-recurring"
-          options={{
-            headerShown: true,
-            headerTitle: 'Edit Recurring Task',
-            headerStyle: { backgroundColor: '#4f46e5' },
-            headerTintColor: '#fff',
-            presentation: 'modal',
-          }}
+          options={{ headerShown: false, presentation: 'modal' }}
         />
       </Stack>
       </SafeAreaProvider>

@@ -1,12 +1,16 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { useTheme } from '../../utils/useTheme';
 import GradientHeader from '../../components/GradientHeader';
+import ConfettiOverlay from '../../components/ConfettiOverlay';
+import ProgressDonut from '../../components/ProgressDonut';
+import TaskItem from '../../components/TaskItem';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
@@ -14,22 +18,28 @@ import { Task } from '../../db/queries/tasks';
 
 const TODAY = format(new Date(), 'yyyy-MM-dd');
 
-const DAY_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-const getRecurringLabel = (frequency?: string, daysOfWeek?: string): string | null => {
-  if (!frequency) return null;
-  if (frequency === 'daily') return 'Daily';
-  if (frequency === 'weekly' && daysOfWeek) {
-    const days = daysOfWeek.split(',').map(d => DAY_SHORT[Number(d)]);
-    return days.join(', ');
-  }
-  return 'Weekly';
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
 };
-
 export default function TodayScreen() {
-  const { todayTasks, fetchTodayTasks, toggleTask, removeTask, reorderTasks, isLoading } = useTaskStore();
-  const { overview, fetchStats } = useStatsStore();
+  // Selective subscriptions — only re-render when these specific values change
+  const todayTasks = useTaskStore(s => s.todayTasks);
+  const isLoading = useTaskStore(s => s.isLoading);
+  const fetchTodayTasks = useTaskStore(s => s.fetchTodayTasks);
+  const toggleTask = useTaskStore(s => s.toggleTask);
+  const removeTask = useTaskStore(s => s.removeTask);
+  const reorderTasks = useTaskStore(s => s.reorderTasks);
+  const reorderWithPriority = useTaskStore(s => s.reorderWithPriority);
+
+  const currentStreak = useStatsStore(s => s.overview.currentStreak);
+  const bestStreak = useStatsStore(s => s.overview.bestStreak);
+  const fetchStats = useStatsStore(s => s.fetchStats);
+
   const C = useTheme();
+  const { bottom } = useSafeAreaInsets();
   const confettiRef = useRef<ConfettiCannon>(null);
   const [hasShownConfetti, setHasShownConfetti] = useState(false);
 
@@ -38,26 +48,22 @@ export default function TodayScreen() {
     fetchStats();
   }, []);
 
-  const completedCount = todayTasks.filter(t => t.is_completed === 1).length;
-  const totalCount = todayTasks.length;
-  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const { completedCount, totalCount, progress } = useMemo(() => {
+    const completed = todayTasks.filter(t => t.is_completed === 1).length;
+    const total = todayTasks.length;
+    return { completedCount: completed, totalCount: total, progress: total > 0 ? (completed / total) * 100 : 0 };
+  }, [todayTasks]);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
+  const streakMessage = useMemo(() => {
+    if (currentStreak === 0) return 'Start your streak today!';
+    if (currentStreak === 1) return '1 day streak — keep going!';
+    return `${currentStreak} day streak — on fire!`;
+  }, [currentStreak]);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return C.error;
-      case 'medium': return C.warning;
-      default: return C.success;
-    }
-  };
+  const greeting = useMemo(() => getGreeting(), []);
+  const dateLabel = useMemo(() => format(new Date(), 'EEEE, MMMM d'), []);
 
-  const handleToggle = (id: string, currentStatus: number, taskDate: string) => {
+  const handleToggle = useCallback((id: string, currentStatus: number, taskDate: string) => {
     const completing = currentStatus === 0;
     if (completing) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -65,18 +71,20 @@ export default function TodayScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    const newCompletedCount = completing ? completedCount + 1 : completedCount - 1;
-    const newProgress = totalCount > 0 ? (newCompletedCount / totalCount) * 100 : 0;
+    const newCompleted = completing ? completedCount + 1 : completedCount - 1;
+    const newProgress = totalCount > 0 ? (newCompleted / totalCount) * 100 : 0;
+
     if (newProgress === 100 && totalCount > 0 && !hasShownConfetti) {
       setHasShownConfetti(true);
-      confettiRef.current?.start();
+      // Delay confetti until donut animation finishes (700ms)
+      setTimeout(() => confettiRef.current?.start(), 750);
     }
     if (newProgress < 100) setHasShownConfetti(false);
 
     toggleTask(id, currentStatus === 1, taskDate);
-  };
+  }, [completedCount, totalCount, hasShownConfetti, toggleTask]);
 
-  const handleDelete = (id: string, taskDate: string, title: string, recurringTaskId?: string) => {
+  const handleDelete = useCallback((id: string, taskDate: string, title: string, recurringTaskId?: string) => {
     Alert.alert('Delete Task', `Delete "${title}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -96,205 +104,121 @@ export default function TodayScreen() {
         },
       },
     ]);
-  };
+  }, [removeTask, fetchStats]);
 
-  const getStreakMessage = () => {
-    const { currentStreak } = overview;
-    if (currentStreak === 0) return 'Start your streak today!';
-    if (currentStreak === 1) return '1 day streak — keep going!';
-    return `${currentStreak} day streak — on fire!`;
-  };
+  const handleDragEnd = useCallback(({ data }: { data: Task[] }) => {
+    reorderWithPriority(data);
+  }, [reorderWithPriority]);
 
-  const renderTask = ({ item, drag, isActive }: RenderItemParams<Task>) => (
-    <ScaleDecorator activeScale={1.03}>
-      <TouchableOpacity
-        style={[
-          styles.taskCard,
-          { backgroundColor: C.surface },
-          isActive && { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
-        ]}
-        onLongPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          drag();
-        }}
-        delayLongPress={200}
-        activeOpacity={0.9}
-      >
-        <TouchableOpacity
-          style={[styles.checkbox, { borderColor: C.primary }, item.is_completed === 1 && { backgroundColor: C.primary, borderColor: C.primary }]}
-          onPress={(e) => { e.stopPropagation(); handleToggle(item.id, item.is_completed, item.task_date); }}
-        >
-          {item.is_completed === 1 && <Text style={styles.checkmark}>✓</Text>}
-        </TouchableOpacity>
+  const renderTask = useCallback(({ item, drag, isActive }: RenderItemParams<Task>) => (
+    <TaskItem
+      item={item}
+      drag={drag}
+      isActive={isActive}
+      onToggle={handleToggle}
+      onDelete={handleDelete}
+      C={C}
+    />
+  ), [handleToggle, handleDelete, C]);
 
-        <View style={styles.taskContent}>
-          <Text style={[styles.taskTitle, { color: C.textPrimary }, item.is_completed === 1 && { textDecorationLine: 'line-through', color: C.textMuted }]}>
-            {item.title}
-          </Text>
-          <View style={styles.taskMeta}>
-            {item.category_id && (
-              <Text style={[styles.metaText, { color: C.textSecondary }]}>{item.category_id.replace('cat_', '')}</Text>
-            )}
-            {item.due_time && <Text style={[styles.metaText, { color: C.textSecondary }]}>🕐 {item.due_time}</Text>}
-            {getRecurringLabel(item.frequency, item.days_of_week) && (
-              <View style={[styles.recurringBadge, { backgroundColor: C.primary + '15' }]}>
-                <Text style={[styles.recurringText, { color: C.primary }]}>
-                  🔁 {getRecurringLabel(item.frequency, item.days_of_week)}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
+  const keyExtractor = useCallback((item: Task) => item.id, []);
 
-        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
-          <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
-            {item.priority}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => router.push({
-            pathname: '/task/edit',
-            params: {
-              id: item.id,
-              title: item.title,
-              description: item.description || '',
-              category_id: item.category_id,
-              priority: item.priority,
-              due_time: item.due_time || '',
-              task_date: item.task_date,
-              recurring_task_id: item.recurring_task_id || '',
-            },
-          })}
-        >
-          <Text style={styles.editButtonText}>✏️</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDelete(item.id, item.task_date, item.title, item.recurring_task_id)}
-        >
-          <Text style={styles.deleteButtonText}>🗑️</Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </ScaleDecorator>
-  );
+  const ListEmpty = useMemo(() => (
+    <View style={styles.emptyState}>
+      <Ionicons name="clipboard-outline" size={48} color={C.textMuted} style={{ marginBottom: 16 }} />
+      <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No tasks for today</Text>
+      <Text style={[styles.emptyText, { color: C.textMuted }]}>Tap + to add your first task</Text>
+    </View>
+  ), [C.textPrimary, C.textMuted]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
-        <GradientHeader title={getGreeting()} subtitle={format(new Date(), 'EEEE, MMMM d')} />
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={[]}>
+      <GradientHeader title={greeting} subtitle={dateLabel} />
 
-        <View style={[styles.streakCard, { backgroundColor: C.streakBg }]}>
-          <Text style={styles.streakIcon}>🔥</Text>
-          <View>
-            <Text style={[styles.streakText, { color: C.streakText }]}>{getStreakMessage()}</Text>
-            {overview.bestStreak > 0 && (
-              <Text style={[styles.streakBest, { color: C.streakText }]}>Best: {overview.bestStreak} days</Text>
-            )}
-          </View>
-        </View>
-
-        <View style={[styles.progressCard, { backgroundColor: C.surface }]}>
-          <View style={[styles.progressRing, { backgroundColor: C.primary }]}>
-            <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
-          </View>
-          <Text style={[styles.progressStats, { color: C.textPrimary }]}>
-            {completedCount} of {totalCount} tasks completed
-          </Text>
-          {progress === 100 && totalCount > 0 && (
-            <Text style={[styles.motivationText, { color: C.textSecondary }]}>🎉 Amazing day! You crushed it!</Text>
-          )}
-          {progress > 0 && progress < 100 && (
-            <Text style={[styles.motivationText, { color: C.textSecondary }]}>{totalCount - completedCount} more to go!</Text>
-          )}
-          {totalCount === 0 && (
-            <Text style={[styles.motivationText, { color: C.textSecondary }]}>✨ Add your first task to start</Text>
+      <View style={[styles.streakCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+        <Ionicons name="flame" size={18} color={C.warning} style={{ marginRight: 10 }} />
+        <View>
+          <Text style={[styles.streakText, { color: C.textPrimary }]}>{streakMessage}</Text>
+          {bestStreak > 0 && (
+            <Text style={[styles.streakBest, { color: C.textSecondary }]}>Best: {bestStreak} days</Text>
           )}
         </View>
+      </View>
 
-        <View style={styles.listHeader}>
-          <Text style={[styles.listTitle, { color: C.textPrimary }]}>Today's Tasks</Text>
-          <Text style={[styles.taskCount, { color: C.textSecondary }]}>{totalCount} tasks</Text>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.centerLoader}>
-            <ActivityIndicator size="large" color={C.primary} />
-          </View>
-        ) : (
-          <View style={{ flex: 1 }}>
-            <DraggableFlatList
-            data={todayTasks}
-            keyExtractor={(item) => item.id}
-            renderItem={renderTask}
-            onDragEnd={({ data }) => reorderTasks(data)}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyEmoji}>📝</Text>
-                <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No tasks for today</Text>
-                <Text style={[styles.emptyText, { color: C.textMuted }]}>Tap the + button to add your first task</Text>
-              </View>
-            )}
-          />
-          </View>
-        )}
-
-        <TouchableOpacity style={[styles.fab, { backgroundColor: C.primary }]} onPress={() => router.push('/task/create')} activeOpacity={0.8}>
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-
-        <ConfettiCannon
-          ref={confettiRef}
-          count={120}
-          origin={{ x: Dimensions.get('window').width / 2, y: -20 }}
-          autoStart={false}
-          fadeOut
-          fallSpeed={3000}
-          explosionSpeed={350}
-          colors={['#4f46e5', '#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#fff']}
+      <View style={[styles.progressCard, { backgroundColor: C.surface }]}>
+        <ProgressDonut
+          progress={progress}
+          size={160}
+          strokeWidth={12}
+          color={C.primary}
+          trackColor={C.border}
+          textColor={C.textPrimary}
+          glowColor={C.donutGlow}
+          completedCount={completedCount}
+          totalCount={totalCount}
+          subtitleColor={C.textSecondary}
         />
-      </SafeAreaView>
+        {progress === 100 && totalCount > 0 && (
+          <Text style={[styles.motivationText, { color: C.success }]}>All done. Excellent.</Text>
+        )}
+        {progress > 0 && progress < 100 && (
+          <Text style={[styles.motivationText, { color: C.textSecondary }]}>{totalCount - completedCount} remaining</Text>
+        )}
+        {totalCount === 0 && (
+          <Text style={[styles.motivationText, { color: C.textMuted }]}>Add a task to begin</Text>
+        )}
+      </View>
+
+      <View style={styles.listHeader}>
+        <Text style={[styles.listTitle, { color: C.textPrimary }]}>Today's Tasks</Text>
+        <Text style={[styles.taskCount, { color: C.textSecondary }]}>{totalCount} tasks</Text>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.centerLoader}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          <DraggableFlatList
+            data={todayTasks}
+            keyExtractor={keyExtractor}
+            renderItem={renderTask}
+            onDragEnd={handleDragEnd}
+            contentContainerStyle={[styles.listContent, { paddingBottom: bottom + 4 + 64 + 16 }]}
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            ListEmptyComponent={ListEmpty}
+          />
+        </View>
+      )}
+
+      <TouchableOpacity style={[styles.fab, { backgroundColor: C.primary, bottom: bottom + 4 + 64 + 8, right: 32 }]} onPress={() => router.push('/task/create')} activeOpacity={0.8}>
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      <ConfettiOverlay ref={confettiRef} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  streakCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 16, padding: 12, borderRadius: 16 },
-  streakIcon: { fontSize: 24, marginRight: 12 },
-  streakText: { fontSize: 14, fontWeight: '600' },
-  streakBest: { fontSize: 12, marginTop: 2, opacity: 0.8 },
-  progressCard: { margin: 20, padding: 24, borderRadius: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  progressRing: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  progressPercent: { fontSize: 32, fontWeight: '800', color: '#fff' },
-  progressStats: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  motivationText: { fontSize: 14 },
-  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
-  listTitle: { fontSize: 20, fontWeight: '600' },
-  taskCount: { fontSize: 14 },
-  listContent: { paddingBottom: 100 },
-  centerLoader: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
-  taskCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 6, padding: 16, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
-  checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
-  checkmark: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-  taskContent: { flex: 1 },
-  taskTitle: { fontSize: 16, fontWeight: '500', marginBottom: 4 },
-  taskMeta: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  metaText: { fontSize: 12 },
-  recurringBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 2 },
-  recurringText: { fontSize: 11, fontWeight: '600' },
-  priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginRight: 4 },
-  priorityText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
-  editButton: { padding: 8, marginLeft: 2 },
-  editButtonText: { fontSize: 16 },
-  deleteButton: { padding: 8, marginLeft: 2 },
-  deleteButtonText: { fontSize: 16 },
-  emptyState: { alignItems: 'center', paddingTop: 80 },
-  emptyEmoji: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
-  emptyText: { fontSize: 14, textAlign: 'center' },
-  fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
-  fabText: { fontSize: 28, color: '#fff', fontWeight: '600' },
+  // Streak — glass card, no heavy border
+  streakCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 10, padding: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+  streakText: { fontSize: 13, fontWeight: '600', letterSpacing: 0.1 },
+  streakBest: { fontSize: 11, marginTop: 1, opacity: 0.6 },
+  progressCard: { alignItems: 'center', marginHorizontal: 16, marginTop: 10, marginBottom: 2, padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 14, elevation: 3 },
+  motivationText: { fontSize: 12, letterSpacing: 0.1, marginTop: 10, fontWeight: '500' },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  listTitle: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
+  taskCount: { fontSize: 11, fontWeight: '500' },
+  listContent: { paddingHorizontal: 4, paddingBottom: 160 },
+  centerLoader: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
+  taskCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 3, padding: 11, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4, letterSpacing: -0.2 },
+  emptyText: { fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  fab: { position: 'absolute', width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
+  fabText: { fontSize: 24, color: '#fff', fontWeight: '400', lineHeight: 28 },
 });

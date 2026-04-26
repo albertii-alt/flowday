@@ -2,75 +2,95 @@ import { StatsOverview } from '../db/queries/stats';
 
 export interface Badge {
   id: string;
-  emoji: string;
+  icon: string;
+  iconColor: string;
   title: string;
   description: string;
+  hint: string;
   unlocked: boolean;
 }
 
 type BadgeDefinition = {
   id: string;
-  emoji: string;
+  icon: string;
+  iconColor: string;
   title: string;
   description: string;
+  hint: string;
   check: (overview: StatsOverview) => boolean;
 };
 
 const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     id: 'first_step',
-    emoji: '🌱',
+    icon: 'leaf-outline',
+    iconColor: '#10b981',
     title: 'First Step',
-    description: 'Complete your first task',
+    description: 'You completed your first task. Every journey starts with a single step.',
+    hint: 'Complete your very first task to unlock this.',
     check: (o) => o.completedTasks >= 1,
   },
   {
     id: 'half_century',
-    emoji: '🎯',
+    icon: 'radio-button-on-outline',
+    iconColor: '#3b82f6',
     title: 'Half Century',
-    description: 'Complete 50 tasks total',
+    description: '50 tasks done. You are building serious momentum.',
+    hint: 'Complete 50 tasks in total to unlock this.',
     check: (o) => o.completedTasks >= 50,
   },
   {
     id: 'century',
-    emoji: '💯',
+    icon: 'checkmark-done-outline',
+    iconColor: '#1e40af',
     title: 'Century',
-    description: 'Complete 100 tasks total',
+    description: '100 tasks completed. You are a productivity machine.',
+    hint: 'Complete 100 tasks in total to unlock this.',
     check: (o) => o.completedTasks >= 100,
   },
   {
     id: 'on_a_roll',
-    emoji: '🔥',
+    icon: 'flame-outline',
+    iconColor: '#f59e0b',
     title: 'On a Roll',
-    description: 'Reach a 3-day streak',
+    description: '3 days in a row. The streak is alive — keep the fire burning.',
+    hint: 'Reach a 3-day streak to unlock this.',
     check: (o) => o.bestStreak >= 3,
   },
   {
     id: 'week_warrior',
-    emoji: '⚔️',
+    icon: 'shield-outline',
+    iconColor: '#6366f1',
     title: 'Week Warrior',
-    description: 'Reach a 7-day streak',
+    description: '7 days straight. A full week of discipline and focus.',
+    hint: 'Reach a 7-day streak to unlock this.',
     check: (o) => o.bestStreak >= 7,
   },
   {
     id: 'unstoppable',
-    emoji: '🚀',
+    icon: 'rocket-outline',
+    iconColor: '#06b6d4',
     title: 'Unstoppable',
-    description: 'Reach a 30-day streak',
+    description: '30 days without breaking. You are truly unstoppable.',
+    hint: 'Reach a 30-day streak to unlock this.',
     check: (o) => o.bestStreak >= 30,
   },
   {
     id: 'perfect_day',
-    emoji: '⭐',
+    icon: 'star-outline',
+    iconColor: '#f59e0b',
     title: 'Perfect Day',
-    description: '100% completion on any day',
+    description: '100% completion in a single day. Flawless execution.',
+    hint: 'Complete 100% of your tasks on any single day.',
     check: (o) => o.dailyStats.some(d => d.rate === 100),
   },
   {
     id: 'perfect_week',
-    emoji: '👑',
+    icon: 'trophy-outline',
+    iconColor: '#d97706',
     title: 'Perfect Week',
-    description: '7 consecutive days at 100%',
+    description: '7 consecutive perfect days. Elite level consistency.',
+    hint: 'Hit 100% completion for 7 days in a row.',
     check: (o) => {
       let consecutive = 0;
       for (const day of o.dailyStats) {
@@ -86,16 +106,20 @@ const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
   {
     id: 'consistent',
-    emoji: '📅',
+    icon: 'calendar-outline',
+    iconColor: '#8b5cf6',
     title: 'Consistent',
-    description: 'Be active on 7 different days',
+    description: 'Active on 7 different days. Consistency beats intensity.',
+    hint: 'Use FlowDay on 7 different days to unlock this.',
     check: (o) => o.insights.totalActiveDays >= 7,
   },
   {
     id: 'dedicated',
-    emoji: '🏅',
+    icon: 'medal-outline',
+    iconColor: '#ec4899',
     title: 'Dedicated',
-    description: 'Be active on 30 different days',
+    description: 'Active on 30 different days. This is a lifestyle now.',
+    hint: 'Use FlowDay on 30 different days to unlock this.',
     check: (o) => o.insights.totalActiveDays >= 30,
   },
 ];
@@ -103,9 +127,11 @@ const BADGE_DEFINITIONS: BadgeDefinition[] = [
 export const evaluateBadges = (overview: StatsOverview): Badge[] => {
   return BADGE_DEFINITIONS.map(def => ({
     id: def.id,
-    emoji: def.emoji,
+    icon: def.icon,
+    iconColor: def.iconColor,
     title: def.title,
     description: def.description,
+    hint: def.hint,
     unlocked: def.check(overview),
   }));
 };

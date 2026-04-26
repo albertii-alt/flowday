@@ -117,6 +117,11 @@ export const updateTaskOrder = async (orderedIds: string[]): Promise<void> => {
   }
 };
 
+// Update task priority only
+export const updateTaskPriority = async (id: string, priority: string): Promise<void> => {
+  await db.runAsync(`UPDATE tasks SET priority = ?, updated_at = date('now') WHERE id = ?`, priority, id);
+};
+
 // Get tasks for a date range
 export const getTasksByDateRange = async (startDate: string, endDate: string): Promise<Task[]> => {
   const result = await db.getAllAsync(

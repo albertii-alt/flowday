@@ -1,8 +1,12 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { updateRecurringTask, Frequency } from '../../db/queries/recurring';
+import { Ionicons } from '@expo/vector-icons';
+import { updateRecurringTask, syncRecurringPriorityToTasks, Frequency } from '../../db/queries/recurring';
+import { useTaskStore } from '../../store/useTaskStore';
+import { format } from 'date-fns';
 import { useTheme } from '../../utils/useTheme';
+import GradientHeader from '../../components/GradientHeader';
 
 const categories = [
   { id: 'cat_personal', name: 'Personal', color: '#4f46e5' },
@@ -39,6 +43,8 @@ export default function EditRecurringScreen() {
     days_of_week: string;
   }>();
 
+  const refreshTodayTasks = useTaskStore(s => s.refreshTodayTasks);
+  const today = format(new Date(), 'yyyy-MM-dd');
   const C = useTheme();
   const [title, setTitle] = useState(initialTitle || '');
   const [description, setDescription] = useState(initialDesc || '');
@@ -51,6 +57,25 @@ export default function EditRecurringScreen() {
   const [selectedDays, setSelectedDays] = useState<number[]>(
     days_of_week ? days_of_week.split(',').map(Number) : []
   );
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Recurring Task',
+      'This recurring task will be permanently deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { deleteRecurringTask } = await import('../../db/queries/recurring');
+            await deleteRecurringTask(id);
+            router.back();
+          },
+        },
+      ]
+    );
+  };
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -70,11 +95,15 @@ export default function EditRecurringScreen() {
       frequency,
       days_of_week: frequency === 'weekly' ? selectedDays.sort().join(',') : undefined,
     });
+    // Sync priority to any already-generated tasks for today
+    await syncRecurringPriorityToTasks(id, selectedPriority, today);
+    await refreshTodayTasks(today);
     router.back();
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <GradientHeader title="Edit Recurring Task" compact onBack={() => router.back()} rightIcon={<Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.8)" />} onRightAction={handleDelete} />
       <ScrollView
         style={[styles.container, { backgroundColor: C.background }]}
         showsVerticalScrollIndicator={false}

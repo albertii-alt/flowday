@@ -2,34 +2,47 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, FlatList }
 import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { db } from '../db/schema';
 
 const { width } = Dimensions.get('window');
 
-const slides = [
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+const slides: {
+  id: string;
+  icon: IoniconsName | null;
+  iconColor: string;
+  title: string;
+  subtitle: string;
+}[] = [
   {
     id: '1',
-    emoji: null,
+    icon: null,
+    iconColor: '',
     title: 'Welcome to FlowDay',
     subtitle: 'Your daily focus companion. Plan tasks, track progress, and build consistency — all offline.',
   },
   {
     id: '2',
-    emoji: '✅',
+    icon: 'checkmark-circle',
+    iconColor: '#3b82f6',
     title: 'Plan Your Day',
-    subtitle: 'Add tasks with categories, priorities, and due times. Stay organized and focused every single day.',
+    subtitle: 'Add tasks with categories, priorities, and due times. Stay organized and focused every day.',
   },
   {
     id: '3',
-    emoji: '📊',
-    title: 'Track Your Progress',
-    subtitle: 'See your completion rate, review past days on the calendar, and watch your stats grow over time.',
+    icon: 'bar-chart',
+    iconColor: '#06b6d4',
+    title: 'Track Progress',
+    subtitle: 'See your completion rate, review past days on the calendar, and watch your stats grow.',
   },
   {
     id: '4',
-    emoji: '🔥',
+    icon: 'flame',
+    iconColor: '#f59e0b',
     title: 'Build Your Streak',
-    subtitle: 'Complete 80% or more of your tasks daily to keep your streak alive. Consistency is the key!',
+    subtitle: 'Complete 80% or more of your tasks daily to keep your streak alive. Consistency is everything.',
   },
 ];
 
@@ -39,8 +52,9 @@ export default function OnboardingScreen() {
 
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
-      setCurrentIndex(currentIndex + 1);
+      const next = currentIndex + 1;
+      flatListRef.current?.scrollToIndex({ index: next, animated: true });
+      setCurrentIndex(next);
     }
   };
 
@@ -51,15 +65,13 @@ export default function OnboardingScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleSkip = () => handleGetStarted();
-
   const isLast = currentIndex === slides.length - 1;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Skip button */}
+      {/* Skip */}
       {!isLast && (
-        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
+        <TouchableOpacity style={styles.skipBtn} onPress={handleGetStarted}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       )}
@@ -72,21 +84,21 @@ export default function OnboardingScreen() {
         pagingEnabled
         scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(index);
-        }}
         renderItem={({ item }) => (
           <View style={styles.slide}>
             {item.id === '1' ? (
-              <Image
-                source={require('../assets/flowday-onboard.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+              <View style={styles.logoWrapper}>
+                <View style={styles.logoGlow} />
+                <Image
+                  source={require('../assets/flowday-icon.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
             ) : (
-              <View style={styles.emojiContainer}>
-                <Text style={styles.emoji}>{item.emoji}</Text>
+              <View style={[styles.iconWrapper, { backgroundColor: item.iconColor + '18' }]}>
+                <View style={[styles.iconGlow, { backgroundColor: item.iconColor + '20' }]} />
+                <Ionicons name={item.icon!} size={52} color={item.iconColor} />
               </View>
             )}
             <Text style={styles.title}>{item.title}</Text>
@@ -98,7 +110,13 @@ export default function OnboardingScreen() {
       {/* Dots */}
       <View style={styles.dotsRow}>
         {slides.map((_, i) => (
-          <View key={i} style={[styles.dot, i === currentIndex && styles.dotActive]} />
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              i === currentIndex && styles.dotActive,
+            ]}
+          />
         ))}
       </View>
 
@@ -106,28 +124,139 @@ export default function OnboardingScreen() {
       <TouchableOpacity
         style={styles.button}
         onPress={isLast ? handleGetStarted : handleNext}
+        activeOpacity={0.85}
       >
         <Text style={styles.buttonText}>
-          {isLast ? "Let's Go! 🚀" : 'Next'}
+          {isLast ? "Get Started" : "Continue"}
         </Text>
+        <Ionicons
+          name={isLast ? "checkmark" : "arrow-forward"}
+          size={18}
+          color="#fff"
+          style={{ marginLeft: 8 }}
+        />
       </TouchableOpacity>
+
+      <Text style={styles.footerText}>No account needed. Everything stays on your device.</Text>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a', alignItems: 'center' },
-  skipBtn: { alignSelf: 'flex-end', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4 },
-  skipText: { fontSize: 15, color: '#64748b' },
-  slide: { width, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  logo: { width: 140, height: 140, marginBottom: 40 },
-  emojiContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#1e293b', justifyContent: 'center', alignItems: 'center', marginBottom: 40 },
-  emoji: { fontSize: 56 },
-  title: { fontSize: 30, fontWeight: '800', color: '#f1f5f9', textAlign: 'center', marginBottom: 16 },
-  subtitle: { fontSize: 16, color: '#94a3b8', textAlign: 'center', lineHeight: 24 },
-  dotsRow: { flexDirection: 'row', gap: 8, marginBottom: 32 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#334155' },
-  dotActive: { width: 24, backgroundColor: '#818cf8' },
-  button: { width: width - 48, backgroundColor: '#4f46e5', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginBottom: 24 },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  container: {
+    flex: 1,
+    backgroundColor: '#0d0d0f',
+    alignItems: 'center',
+  },
+  skipBtn: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  skipText: {
+    fontSize: 14,
+    color: '#52525b',
+    fontWeight: '500',
+  },
+  slide: {
+    width,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 36,
+  },
+  // Logo slide
+  logoWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 44,
+  },
+  logoGlow: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(59,130,246,0.12)',
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 28,
+  },
+  // Icon slides
+  iconWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 44,
+  },
+  iconGlow: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#f4f4f5',
+    textAlign: 'center',
+    marginBottom: 14,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#71717a',
+    textAlign: 'center',
+    lineHeight: 23,
+    fontWeight: '400',
+  },
+  // Dots
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 24,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#27272a',
+  },
+  dotActive: {
+    width: 22,
+    backgroundColor: '#3b82f6',
+    borderRadius: 3,
+  },
+  // Button
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: width - 48,
+    backgroundColor: '#1e40af',
+    paddingVertical: 15,
+    borderRadius: 14,
+    marginBottom: 16,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  footerText: {
+    fontSize: 11,
+    color: '#3f3f46',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
 });

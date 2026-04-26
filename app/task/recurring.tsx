@@ -1,16 +1,28 @@
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { getAllRecurringTasks, deleteRecurringTask, RecurringTask } from '../../db/queries/recurring';
 import GradientHeader from '../../components/GradientHeader';
 import { useTheme } from '../../utils/useTheme';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+const CATEGORY_COLORS: Record<string, string> = {
+  cat_personal: '#4f46e5',
+  cat_school:   '#06b6d4',
+  cat_work:     '#f59e0b',
+  cat_health:   '#10b981',
+  cat_errands:  '#ef4444',
+};
+
 export default function RecurringScreen() {
   const [recurringTasks, setRecurringTasks] = useState<RecurringTask[]>([]);
+  const [allSelected, setAllSelected] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const C = useTheme();
+  const { bottom } = useSafeAreaInsets();
 
   const loadTasks = useCallback(async () => {
     const tasks = await getAllRecurringTasks();
@@ -18,6 +30,25 @@ export default function RecurringScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { loadTasks(); }, [loadTasks]));
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+      setAllSelected(false);
+    } else {
+      setSelectedIds(new Set(recurringTasks.map(t => t.id)));
+      setAllSelected(true);
+    }
+  }, [allSelected, recurringTasks]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      setAllSelected(next.size === recurringTasks.length);
+      return next;
+    });
+  }, [recurringTasks]);
 
   const handleDelete = (task: RecurringTask) => {
     Alert.alert(
@@ -30,6 +61,28 @@ export default function RecurringScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteRecurringTask(task.id);
+            setSelectedIds(prev => { const n = new Set(prev); n.delete(task.id); return n; });
+            loadTasks();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    Alert.alert(
+      'Delete Selected',
+      `Delete ${selectedIds.size} recurring task${selectedIds.size > 1 ? 's' : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await Promise.all([...selectedIds].map(id => deleteRecurringTask(id)));
+            setSelectedIds(new Set());
+            setAllSelected(false);
             loadTasks();
           },
         },
@@ -38,12 +91,12 @@ export default function RecurringScreen() {
   };
 
   const getFrequencyLabel = (task: RecurringTask): string => {
-    if (task.frequency === 'daily') return '🔁 Every day';
+    if (task.frequency === 'daily') return 'Every day';
     if (task.frequency === 'weekly' && task.days_of_week) {
       const dayNames = task.days_of_week.split(',').map(d => DAYS[Number(d)]).join(', ');
-      return `🔁 Every ${dayNames}`;
+      return `Every ${dayNames}`;
     }
-    return '🔁 Weekly';
+    return 'Weekly';
   };
 
   const getPriorityColor = (priority: string) => {
@@ -53,34 +106,65 @@ export default function RecurringScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={['top']}>
-      <GradientHeader title="Recurring Tasks" subtitle="Tasks that repeat automatically" />
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]} edges={[]}>
+      <GradientHeader
+        title="Recurring Tasks"
+        subtitle="Tasks that repeat automatically"
+        compact
+        onBack={() => router.back()}
+        rightIcon={<Ionicons name={allSelected ? 'checkmark-done' : 'checkmark-done-outline'} size={18} color="#fff" />}
+        onRightAction={toggleSelectAll}
+      />
+
+      {selectedIds.size > 0 && (
+        <TouchableOpacity
+          style={[styles.deleteBar, { backgroundColor: C.error }]}
+          onPress={handleDeleteSelected}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="trash-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={styles.deleteBarText}>Delete {selectedIds.size} selected</Text>
+        </TouchableOpacity>
+      )}
 
       <FlatList
         data={recurringTasks}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: bottom + 4 + 64 + 16 }]}
         renderItem={({ item }) => (
-          <View style={[styles.card, { backgroundColor: C.surface }]}>
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: C.surface }, selectedIds.has(item.id) && { borderWidth: 1.5, borderColor: C.primary }]}
+            onPress={() => toggleSelect(item.id)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.selectionDot, { borderColor: C.primary }, selectedIds.has(item.id) && { backgroundColor: C.primary }]}>
+              {selectedIds.has(item.id) && <Ionicons name="checkmark" size={11} color="#fff" />}
+            </View>
             <View style={styles.cardContent}>
-              <View style={styles.cardTop}>
-                <Text style={[styles.taskTitle, { color: C.textPrimary }]}>{item.title}</Text>
-                <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
-                  <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
-                    {item.priority}
+              <Text style={[styles.taskTitle, { color: C.textPrimary }]}>{item.title}</Text>
+              <View style={styles.meta}>
+                {item.category_id && (
+                  <Text style={[styles.metaText, { color: CATEGORY_COLORS[item.category_id] ?? C.textSecondary }]}>
+                    {item.category_id.replace('cat_', '')}
                   </Text>
+                )}
+                {item.due_time && (
+                  <View style={styles.metaRow}>
+                    <Ionicons name="time-outline" size={10} color={C.textSecondary} />
+                    <Text style={[styles.metaText, { color: C.textSecondary }]}> {item.due_time}</Text>
+                  </View>
+                )}
+                <View style={styles.metaRow}>
+                  <Ionicons name="repeat" size={10} color={C.primary} />
+                  <Text style={[styles.metaText, { color: C.primary }]}> {getFrequencyLabel(item)}</Text>
                 </View>
               </View>
-              {item.description && (
-                <Text style={[styles.description, { color: C.textSecondary }]}>{item.description}</Text>
-              )}
-              <Text style={[styles.frequency, { color: C.primary }]}>{getFrequencyLabel(item)}</Text>
-              {item.category_id && (
-                <Text style={[styles.category, { color: C.textMuted }]}>{item.category_id.replace('cat_', '')}</Text>
-              )}
+            </View>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
+              <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>{item.priority}</Text>
             </View>
             <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
-              <Text style={styles.deleteIcon}>🗑️</Text>
+              <Ionicons name="trash-outline" size={18} color={C.error} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push({
@@ -98,13 +182,13 @@ export default function RecurringScreen() {
               })}
               style={styles.editBtn}
             >
-              <Text style={styles.editIcon}>✏️</Text>
+              <Ionicons name="pencil-outline" size={18} color={C.textMuted} />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🔁</Text>
+            <Ionicons name="repeat" size={56} color={C.textMuted} style={{ marginBottom: 16 }} />
             <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No recurring tasks</Text>
             <Text style={[styles.emptyText, { color: C.textMuted }]}>
               Add a task and set it to repeat daily or weekly
@@ -114,11 +198,11 @@ export default function RecurringScreen() {
       />
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: C.primary }]}
+        style={[styles.fab, { backgroundColor: C.primary, bottom: bottom + 4 + 64 + 8, right: 24 }]}
         onPress={() => router.push('/task/create')}
         activeOpacity={0.8}
       >
-        <Text style={styles.fabText}>+</Text>
+        <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -126,24 +210,24 @@ export default function RecurringScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  listContent: { padding: 16, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  listContent: { paddingTop: 4, paddingBottom: 100 },
+  card: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 3, padding: 11, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardContent: { flex: 1 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  taskTitle: { fontSize: 16, fontWeight: '600', flex: 1, marginRight: 8 },
-  priorityBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
-  priorityText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
-  description: { fontSize: 13, marginBottom: 4 },
-  frequency: { fontSize: 13, fontWeight: '500', marginBottom: 2 },
-  category: { fontSize: 12, textTransform: 'capitalize' },
-  deleteBtn: { padding: 8, marginLeft: 4 },
-  deleteIcon: { fontSize: 20 },
-  editBtn: { padding: 8, marginLeft: 4 },
-  editIcon: { fontSize: 20 },
+  taskTitle: { fontSize: 14, fontWeight: '500', marginBottom: 2, letterSpacing: 0.1 },
+  meta: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
+  metaRow: { flexDirection: 'row', alignItems: 'center' },
+  metaText: { fontSize: 10 },
+  recurringBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  recurringText: { fontSize: 10, fontWeight: '600', flexShrink: 1 },
+  priorityBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginRight: 2 },
+  priorityText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize', letterSpacing: 0.3 },
+  selectionDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, marginRight: 10, justifyContent: 'center', alignItems: 'center' },
+  deleteBtn: { padding: 8, marginLeft: 4, alignSelf: 'center' },
+  deleteBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 4, padding: 10, borderRadius: 10 },
+  deleteBarText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  editBtn: { padding: 8, marginLeft: 4, alignSelf: 'center' },
   emptyState: { alignItems: 'center', paddingTop: 80 },
-  emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
   emptyText: { fontSize: 14, textAlign: 'center' },
-  fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
-  fabText: { fontSize: 28, color: '#fff', fontWeight: '600' },
+  fab: { position: 'absolute', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
 });
