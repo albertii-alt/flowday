@@ -56,7 +56,6 @@ temp-*.js
 .env.production.local
 
 # Build artifacts
-android/
 ios/
 *.apk
 *.aab
