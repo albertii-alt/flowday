@@ -1,4 +1,4 @@
-name: Build Android AAB
+name: Build Android APK
 
 on:
   push:
@@ -33,15 +33,15 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
-      - name: Build AAB
-        run: ./gradlew bundleRelease --no-daemon
+      - name: Build APK
+        run: ./gradlew assembleRelease --no-daemon
         working-directory: android
 
-      - name: Upload AAB as Release
+      - name: Upload APK as Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
           name: "FlowDay v${{ github.run_number }}"
-          files: android/app/build/outputs/bundle/release/app-release.aab
+          files: android/app/build/outputs/apk/release/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
