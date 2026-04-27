@@ -24,25 +24,21 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
 
-      - name: Build AAB (local)
-        run: eas build --platform android --profile production-aab --local --non-interactive --output ./build/flowday.aab
-        env:
-          NPM_CONFIG_LEGACY_PEER_DEPS: "true"
+      - name: Build AAB
+        run: ./gradlew bundleRelease --no-daemon
+        working-directory: android
 
-      - name: Create GitHub Release
+      - name: Upload AAB as Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
           name: "FlowDay v${{ github.run_number }}"
-          files: ./build/flowday.aab
+          files: android/app/build/outputs/bundle/release/app-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
